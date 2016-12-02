@@ -16,14 +16,6 @@ interrupt_vector:
     @ alocacao da variavel para o tempo do sistema
     SYSTEM_TIME: .word 0
 
-    @ alocacao de limiares
-    .set MAX_SPEED,                     #63
-    .set MAX_ALARMS,                    #8
-    .set MAX_CALLBACKS                  #8
-    .set TIME_SZ                        #2000
-    .set MIN_SENSOR_ID                  #0
-    .set MAX_SENSOR_ID                  #15
-
     @ alocacao das variaveis para tratamento de alarmes
     ALARMS_COUNT:   .word 0
     ALARMS_PTR:     .skip 32 * MAX_ALARMS
@@ -72,6 +64,8 @@ interrupt_vector:
     .set MAX_ALARMS,            8
     .set MAX_CALLBACKS,         8
     .set TIME_SZ,               2000
+    .set MIN_SENSOR_ID          0
+    .set MAX_SENSOR_ID          15
 
     @ Stack constants
     .set STACK_SIZE,            1024
