@@ -20,12 +20,15 @@ interrupt_vector:
     ALARMS_COUNT:   .word 0
     ALARMS_PTR:     .skip 32 * MAX_ALARMS
     ALARMS_TIME:    .skip 32 * MAX_ALARMS
-    
+
+    @ alocacao das variaveis de pilhas
+    STACK_POINTER:        .skip STACK_SIZE * 4
+
     @ inicio do codigo
     .org 0x100
 
 .text
-    
+
     @@@@@@@@@@@@@
     @ Constants @
     @@@@@@@@@@@@@
@@ -36,12 +39,12 @@ interrupt_vector:
     .set GPT_SR,                0x53FA0008
     .set GPT_IR,                0x53FA000C
     .set GPT_OCR_ONE,           0x53FA0010
-    
+
     @ GPIO addresses
     .set GPIO_DR                0x53F84000
     .set GPIO_GDIR              GPIO_DR + 0x04
     .set GPIO_PSR               GPIO_DR + 0x08
-    
+
     @ TZIC addresses
     .set TZIC_BASE,             0x0FFFC000
     .set TZIC_INTCTRL,          0x0
@@ -49,19 +52,22 @@ interrupt_vector:
     .set TZIC_ENSET1,           0x104
     .set TZIC_PRIOMASK,         0xC
     .set TZIC_PRIORITY9,        0x424
-    
+
     @ System constants
     .set MAX_SPEED,             63
     .set MAX_ALARMS,            8
     .set MAX_CALLBACKS,         8
     .set TIME_SZ,               2000
-    
+
+    @ Stack constants
+    .set STACK_SIZE,            1024
+
     @@@@@@@@@@@@@@@@@@@@
     @ System Initiator @
     @@@@@@@@@@@@@@@@@@@@
-    
+
     RESET_HANDLER:
-    
+
         @ set system time as 0
         ldr r2, =SYSTEM_TIME
         mov r0, #0
@@ -94,14 +100,14 @@ interrupt_vector:
             str r3, [r2]
 
         SET_GPIO:
-            
+
             @ set GDIR values according to hardware specifications
             ldr r2, =GPIO_GDIR
             mov r3, =0b11111111111111000000000000111110
             str r3, [r2]
 
         SET_TZIC:
-        
+
             @ r1 <= TZIC_BASE
             ldr	r1, =TZIC_BASE
 
@@ -131,14 +137,31 @@ interrupt_vector:
             str	r0, [r1, #TZIC_INTCTRL]
 
             @ enables interruptions
-            msr  CPSR_c, #0x13       @ SUPERVISOR mode, IRQ/FIQ enabled
-    
-    SET_STACK_POINTERS:
-        @ continuar
-    
-    RETURN_USER:
-        @ continuar
-    
+            msr CPSR_c, #0x13       @ SUPERVISOR mode, IRQ/FIQ enabled
+
+        SET_STACK_POINTERS:
+
+            @ Set stacks
+            ldr r1, =STACK_POINTER
+
+            add r1, r1, =STACK_SIZE
+            msr CPSR_c, #0x12       @ IRQ mode
+            mov sp, r1
+
+            add r1, r1, =STACK_SIZE
+            msr CPSR_c, #0x1F       @ SYSTEM mode
+            mov sp, r1
+
+            add r1, r1, =STACK_SIZE
+            msr CPSR_c, #0x13       @ Supervisor mode
+            mov sp, r1
+
+        RETURN_USER:
+
+            ldr r0, =0x77802000     @ default start section of the code
+            msr CPSR_c, #0x104      @ change to USER mode
+            bx r0                   @ start program
+
     @@@@@@@@@@@@
     @ Handlers @
     @@@@@@@@@@@@
@@ -148,22 +171,22 @@ interrupt_vector:
         @ le e realiza a syscall desejada
         cmp r8, #16
         beq READ_SONAR
-        
+
         cmp r8, #17
         beq REGISTER_PROXIMITY_CALLBACK
 
         cmp r8, #18
         beq SET_MOTOR_SPEED
-        
+
         cmp r8, #19
         beq SET_MOTORS_SPEED
-        
+
         cmp r8, #20
         beq GET_TIME
-        
+
         cmp r8, #21
         bleq SET_TIME
-        
+
         cmp r8, #22
         beq SET_ALARM
 
@@ -201,7 +224,7 @@ interrupt_vector:
                 @ delay de 15ms
                 bic r3, r3, #0b00000000000000000000000000000010     @ desativa trigger
                 str r3, [r4]                                        @ atualiza o valor de DR
-            
+
             flag_activator:
                 @ delay de 10ms
                 ldr r3, [r4]                                        @ carrega novamente o valor de DR em r3
@@ -375,6 +398,8 @@ interrupt_vector:
         ldr r1, [r0]
         add r1, r1, #1
         str r1, [r0]
+
+        @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ continuar
 
         @ retorna o fluxo
         sub lr, lr, #4
