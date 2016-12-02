@@ -286,14 +286,20 @@ interrupt_vector:
             movs pc, lr
 
             VALID_LEMAX:
+
             ldr r6, =CALLBACKS_SON_ID
-            str r0, [r6, r5, lsl #5] @ CALLBACKS_SON_ID + 32 * CALLBACKS_COUNT = r0
-
             ldr r7, =CALLBACKS_PTR
-            str r2, [r7, r5, lsl #5] @ CALLBACKS_PTR + 32 * CALLBACKS_COUNT = r0
-
             ldr r8, =CALLBACKS_DIST
-            str r1, [r8, r5, lsl #5] @ CALLBACKS_DIST + 32 * CALLBACKS_COUNT = r0
+            mov r9, #-1 @indice
+            callbacks_find_free:
+              add r9, r9, #1 @incrementa indice
+              ldr r10, [r7, r9, lsl #5] @carrega ponteiro
+              cmp r10, #0 @verifica se o ponteiro eh invalido
+              bne alarm_find_free
+
+            str r0, [r6, r9, lsl #5] @ CALLBACKS_SON_ID + 32 * CALLBACKS_COUNT = r0
+            str r2, [r7, r9, lsl #5] @ CALLBACKS_PTR + 32 * CALLBACKS_COUNT = r0
+            str r1, [r8, r9, lsl #5] @ CALLBACKS_DIST + 32 * CALLBACKS_COUNT = r0
 
             add r5, r5, #1 @ incrementa o contador de callbacks
             str r5, [r4]
