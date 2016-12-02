@@ -465,7 +465,7 @@ interrupt_vector:
         str r3, [r2]
 
         @ incrementa contador
-        ldr r0, =CONTADOR
+        ldr r0, =SYSTEM_TIME
         ldr r1, [r0]
         add r1, r1, #1
         str r1, [r0]
