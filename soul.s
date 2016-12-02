@@ -22,6 +22,10 @@ interrupt_vector:
     .set MAX_CALLBACKS                  #8
     .set TIME_SZ                        #2000
 
+    @ alocacao das variaveis para tratamento de alarmes
+    ALARMS_COUNT:   .word 0
+    ALARMS_PTR:     .skip 32 * MAX_ALARMS
+    ALARMS_TIME:    .skip 32 * MAX_ALARMS
 
     @ inicio do codigo
     .org 0x100
@@ -308,12 +312,44 @@ interrupt_vector:
             sub lr, lr, #4
             movs pc, lr
 
-        SET_ALARM:
-            @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ continuar
+        SET_ALARM: @ r0: ponteiro, r1: tempo
+            stmfd sp!, {r4-r11, lr}
 
-        @ retorna o fluxo
-        sub lr, lr, #4
-        movs pc, lr
+            @ verifica se ja atingimos o numero maximo de alarmes
+            ldr r6, =ALARMS_COUNT
+            ldr r7, [r6]
+            cmp r7, #MAX_ALARMS
+            ble ALARMS_AVAILABLE
+            @ retornar -1 em caso de estouro
+            mov r0, #-1
+            movs pc, lr
+
+            ALARMS_AVAILABLE:
+            @ impede que o tempo seja menor que o tempo do sistema
+            ldr r4, =SYSTEM_TIME
+            ldr r5, [r4]
+            cmp r1, r5 @ TIME >= SYSTEM_TIME?
+            bhs VALID_TIME
+            @ retornar -2 em caso de tempo invalido
+            mov r0, #-2
+            movs pc, lr
+
+            VALID_TIME:
+
+
+            ldr r4, =ALARMS_PTR @ vetor de ponteiros
+            str r0, [r4, r7, lsl #5] @ guarda o ptr na posicao ALARMS_PTR + 32 * ALARMS_COUNT
+
+            ldr r5, =ALARMS_TIME @ vetor de tempos
+            str r1, [r5, r7, lsl #5] @ guarda o tempo na posicao ALARMS_TIME + 32 * ALARMS_COUNT
+
+            add r7, r7, #1 @ incrementa o contador de alarmes
+            str r7, [r6]
+
+            stmfd sp!, {r4-r11, lr}
+
+            @ retorna o fluxo
+            movs pc, lr
 
     IRQ_HANDLER:
 
