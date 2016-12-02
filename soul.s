@@ -318,7 +318,7 @@ interrupt_vector:
             mov r2, #1
             cmp r0, r2
             bgt erro_sms_mot                                        @ valor de motor invalido
-            mov r2, MAX_SPEED
+            mov r2, #MAX_SPEED
             cmp r1, r2
             bgt erro_sms_vel                                        @ velocidade invalida
 
@@ -358,10 +358,10 @@ interrupt_vector:
             stmfd sp!, {r1-r4, lr}
 
             @ verifica erros
-            mov r2, MAX_SPEED
+            mov r2, #MAX_SPEED
             cmp r0, r2
             blt erro_smss_1                                         @ velocidade invalida
-            mov r2, MAX_SPEED
+            mov r2, #MAX_SPEED
             cmp r1, r2
             blt erro_smss_2                                         @ velocidade invalida
 
@@ -392,7 +392,7 @@ interrupt_vector:
         GET_TIME:
             stmfd sp!, {lr}
 
-            mov r0, =SYSTEM_TIME
+            mov r0, #SYSTEM_TIME
             ldr r0, [r0]
 
             ldmfd sp!, {lr}
@@ -401,7 +401,7 @@ interrupt_vector:
         SET_TIME:
             stmfd sp!, {r1, lr}
 
-            ldr r1, =SYSTEM_TIME
+            ldr r1, #SYSTEM_TIME
             str r0, [r1]
 
             ldmfd sp!, {r1, lr}
