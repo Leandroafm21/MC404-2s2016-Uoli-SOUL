@@ -18,17 +18,18 @@ interrupt_vector:
 
     @ alocacao das variaveis para tratamento de alarmes
     ALARMS_COUNT:   .word 0
-    ALARMS_PTR:     .skip 32 * MAX_ALARMS
-    ALARMS_TIME:    .skip 32 * MAX_ALARMS
+    ALARMS_PTR:     .fill MAX_ALARMS, 32, 0
+    ALARMS_PTR:     .fill MAX_ALARMS, 32, 0
+    ALARMS_TIME:    .fill MAX_ALARMS, 32, 0
 
     @ alocacao das variaveis de pilhas
-    STACK_POINTER:        .skip STACK_SIZE * 4
+    STACK_POINTER   .skip STACK_SIZE * 4
 
     @ alocacao das variaveis para tratamento de callbacks
     CALLBACKS_COUNT:  .word 0
-    CALLBACKS_PTR:    .skip 32 * MAX_CALLBACKS
-    CALLBACKS_SON_ID: .skip 32 * MAX_CALLBACKS
-    CALLBACKS_DIST:   .skip 32 * MAX_CALLBACKS
+    CALLBACKS_PTR:    .fill MAX_CALLBACKS, 32, 0
+    CALLBACKS_SON_ID: .fill MAX_CALLBACKS, 32, 0
+    CALLBACKS_DIST:   .fill MAX_CALLBACKS, 32, 0
 
     @ inicio do codigo
     .org 0x100
@@ -421,12 +422,18 @@ interrupt_vector:
 
             VALID_TIME:
 
-
             ldr r4, =ALARMS_PTR @ vetor de ponteiros
-            str r0, [r4, r7, lsl #5] @ guarda o ptr na posicao ALARMS_PTR + 32 * ALARMS_COUNT
+            mov r8, #-1 @indice do vetor
+            alarm_find_free:
+              add r8, r8, #1 @incrementa indice
+              ldr r9, [r4, r8, lsl #5] @carrega ponteiro
+              cmp r9, #0 @ verifica se o ponteiro eh invalido
+              bne alarm_find_free
+
+            str r0, [r4, r8, lsl #5] @ guarda o ptr na posicao ALARMS_PTR + 32 * ALARMS_COUNT
 
             ldr r5, =ALARMS_TIME @ vetor de tempos
-            str r1, [r5, r7, lsl #5] @ guarda o tempo na posicao ALARMS_TIME + 32 * ALARMS_COUNT
+            str r1, [r5, r8, lsl #5] @ guarda o tempo na posicao ALARMS_TIME + 32 * ALARMS_COUNT
 
             add r7, r7, #1 @ incrementa o contador de alarmes
             str r7, [r6]
@@ -452,6 +459,38 @@ interrupt_vector:
         ldr r1, [r0]
         add r1, r1, #1
         str r1, [r0]
+
+        @ TRATAMENTO DE ALARMES:
+        ldr r2, =ALARMS_TIME @carrega ponteiro do vetor de tempo dos alarmes
+        ldr r5, =ALARMS_PTR @carrega ponteiro do vetor de funcoes dos alarmes
+        ldr r8, =ALARMS_COUNT
+        mov r3, #0 @indice
+        handle_alarms:
+            cmp r3, #MAX_ALARMS
+            bhi end_alarms
+            ldr r4, [r2, r3, lsl #5] @carrega tempo do alarme
+            cmp r4, #0 @compara com tempo com 0, se igual, o alarme esta vazio
+            beq handle_alarms
+            @alarme existe, verificar se estamos em tempo de chamar a funcao
+            cmp r4, #SYSTEM_TIME
+            bhs handle_alarms
+            @alarme deve ser ativado
+            ldr r6, [r5, r3, lsl #5] @carrega o ponteiro para funcao
+            stmfd sp!, {r0 - r4, lr}
+            msr CPSR_c, #0x10 @muda para modo usuario
+            blx r6 @chama a funcao
+            mov r7, #23 @volta para o modo irq
+            svc 0x0
+            ldmfd sp!, {r0 - r4, lr}
+            ldr r9, [r8] @carrega o contador de alarmes
+            sub r9, r9, #1 @subtrai 1 do contador
+            str r9, [r8] @guarda o novo valor do contador
+            mov r10, #0
+            str r10, [r2, r3, lsl #5] @limpa o tempo do alarme
+            str r10, [r5, r3, lsl #5] @limpa a funcao do alarme
+            b handle_alarms
+
+        end_alarms:
 
         ldmfd sp!, {r0} @ recupera o modo SPSR
         msr SPSR, r0
