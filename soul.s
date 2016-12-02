@@ -448,6 +448,10 @@ interrupt_vector:
         mov pc, lr
 
     IRQ_HANDLER:
+        stmfd sp!, {r0-r12, lr}
+
+        mrs r0, SPSR
+        stmfd sp!, {r0} @ salva modo SPSR na stack
 
         @ informa que o processador sabe sobre a ocorrencia da interrupcao
         ldr r2, =GPT_SR
@@ -460,7 +464,10 @@ interrupt_vector:
         add r1, r1, #1
         str r1, [r0]
 
-        @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ continuar
+        ldmfd sp!, {r0} @ recupera o modo SPSR
+        msr SPSR, r0
+
+        ldmfd sp!, {r0-r12, lr}
 
         @ retorna o fluxo
         sub lr, lr, #4
