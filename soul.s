@@ -434,18 +434,18 @@ interrupt_vector:
             add r7, r7, #1 @ incrementa o contador de alarmes
             str r7, [r6]
 
-            ltmfd sp!, {r4-r11, lr}
+            ldmfd sp!, {r4-r11, lr}
 
             @ retorna o fluxo
             movs pc, lr
 
-    RETURN_TO_IRQ:
-        stmfd sp!, {lr}
+        RETURN_TO_IRQ:
+            stmfd sp!, {lr}
 
-        msr CPSR_c, #0x12
+            msr CPSR_c, #0x12
 
-        ldmfd sp!, {lr}
-        mov pc, lr
+            ldmfd sp!, {lr}
+            mov pc, lr
 
     IRQ_HANDLER:
         stmfd sp!, {r0-r12, lr}
