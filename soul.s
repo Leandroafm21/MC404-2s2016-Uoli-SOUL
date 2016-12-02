@@ -293,13 +293,13 @@ interrupt_vector:
             mov r9, #-1 @indice
             callbacks_find_free:
               add r9, r9, #1 @incrementa indice
-              ldr r10, [r7, r9, lsl #5] @carrega ponteiro
+              ldr r10, [r7, r9, lsl #3] @carrega ponteiro
               cmp r10, #0 @verifica se o ponteiro eh invalido
               bne alarm_find_free
 
-            str r0, [r6, r9, lsl #5] @ CALLBACKS_SON_ID + 32 * CALLBACKS_COUNT = r0
-            str r2, [r7, r9, lsl #5] @ CALLBACKS_PTR + 32 * CALLBACKS_COUNT = r0
-            str r1, [r8, r9, lsl #5] @ CALLBACKS_DIST + 32 * CALLBACKS_COUNT = r0
+            str r0, [r6, r9, lsl #3] @ CALLBACKS_SON_ID + 32 * CALLBACKS_COUNT = r0
+            str r2, [r7, r9, lsl #3] @ CALLBACKS_PTR + 32 * CALLBACKS_COUNT = r0
+            str r1, [r8, r9, lsl #3] @ CALLBACKS_DIST + 32 * CALLBACKS_COUNT = r0
 
             add r5, r5, #1 @ incrementa o contador de callbacks
             str r5, [r4]
@@ -435,14 +435,14 @@ interrupt_vector:
             mov r8, #-1 @indice do vetor
             alarm_find_free:
               add r8, r8, #1 @incrementa indice
-              ldr r9, [r4, r8, lsl #5] @carrega ponteiro
+              ldr r9, [r4, r8, lsl #3] @carrega ponteiro
               cmp r9, #0 @ verifica se o ponteiro eh invalido
               bne alarm_find_free
 
-            str r0, [r4, r8, lsl #5] @ guarda o ptr na posicao ALARMS_PTR + 32 * ALARMS_COUNT
+            str r0, [r4, r8, lsl #3] @ guarda o ptr na posicao ALARMS_PTR + 32 * ALARMS_COUNT
 
             ldr r5, =ALARMS_TIME @ vetor de tempos
-            str r1, [r5, r8, lsl #5] @ guarda o tempo na posicao ALARMS_TIME + 32 * ALARMS_COUNT
+            str r1, [r5, r8, lsl #3] @ guarda o tempo na posicao ALARMS_TIME + 32 * ALARMS_COUNT
 
             add r7, r7, #1 @ incrementa o contador de alarmes
             str r7, [r6]
@@ -483,16 +483,16 @@ interrupt_vector:
         ldr r8, =ALARMS_COUNT
         mov r3, #0 @indice
         handle_alarms:
-            cmp r3, #MAX_ALARMS
+            cmp r3, #MAX_ALARMS @verifica se chegamos ao final da lista de alarmes
             bhi end_alarms
-            ldr r4, [r2, r3, lsl #5] @carrega tempo do alarme
+            ldr r4, [r2, r3, lsl #3] @carrega tempo do alarme
             cmp r4, #0 @compara com tempo com 0, se igual, o alarme esta vazio
             beq handle_alarms
             @alarme existe, verificar se estamos em tempo de chamar a funcao
             cmp r4, #SYSTEM_TIME
             bhs handle_alarms
             @alarme deve ser ativado
-            ldr r6, [r5, r3, lsl #5] @carrega o ponteiro para funcao
+            ldr r6, [r5, r3, lsl #3] @carrega o ponteiro para funcao
             stmfd sp!, {r0 - r4, lr}
             msr CPSR_c, #0x10 @muda para modo usuario
             blx r6 @chama a funcao
@@ -503,11 +503,45 @@ interrupt_vector:
             sub r9, r9, #1 @subtrai 1 do contador
             str r9, [r8] @guarda o novo valor do contador
             mov r10, #0
-            str r10, [r2, r3, lsl #5] @limpa o tempo do alarme
-            str r10, [r5, r3, lsl #5] @limpa a funcao do alarme
+            str r10, [r2, r3, lsl #3] @limpa o tempo do alarme
             b handle_alarms
 
         end_alarms:
+
+        @ TRATAMENTO DE SENSOR CALLBACKS
+        ldr r1, =CALLBACKS_COUNT
+        ldr r2, =CALLBACKS_PTR
+        ldr r3, =CALLBACKS_DIST
+        ldr r4, =CALLBACKS_SON_ID
+        mov r5, #0 @indice
+        handle_callbacks:
+            cmp r5, #MAX_CALLBACKS @verifica se chegamos ao final da lista de callbacks
+            bhi end_callbacks
+            ldr r6, [r3, r5, lsl #3] @carrega a distancia
+            cmp r6, #0 @se for 0, o callback esta vazio
+            beq handle_callbacks
+            @callback existe, verificar distancia
+            ldr r0, [r4, r5, lsl #3] @carrega o id do sonar
+            ldr r7, [r3, r5, lsl #3] @carrega a distancia
+            bl READ_SONAR
+            cmp r0, r7
+            bgt handle_callbacks
+            @distancia menor q a limiar, chamar funcao
+            ldr r7, [r2, r5, lsl #3] @carrega o ponteiro para funcao
+            stmfd sp!, {r0 - r4, lr}
+            msr CPSR_c, #0x10 @muda para modo usuario
+            blx r7 @chama a funcao
+            mov r7, #23 @volta para o modo irq
+            svc 0x0
+            ldmfd sp!, {r0 - r4, lr}
+            ldr r8, [r1] @carrega o contador de alarmes
+            sub r8, r8, #1 @decrementa o contador
+            str r8, [r1] @guarda o novo valor
+            mov r10, #0
+            str r10, [r3, r5, lsl #3] @limpa a distancia
+            b handle_callbacks
+
+        end_callbacks:
 
         ldmfd sp!, {r0} @ recupera o modo SPSR
         msr SPSR, r0
