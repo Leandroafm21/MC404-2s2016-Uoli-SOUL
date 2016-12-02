@@ -321,14 +321,14 @@ interrupt_vector:
             cmp r0, #1                                              @ verifica qual motor esta sendo modificado
             beq motor1_sms                                          @ salta para a instrucao de configuracao do motor1
 
-            bic r3, r3, #MOTOR_0_MASK         @ remove a velocidade atual do motor 0
+            bic r3, r3, #MOTOR_0_MASK                               @ remove a velocidade atual do motor 0
             lsl r1, r1, #19                                         @ desloca a velocidade desejada para se adequar a DR
             orr r3, r3, r1                                          @ insere a nova velocidade no valor resultante de DR
             str r3, [r4]                                            @ atualiza o valor de DR
             b fim_sms                                               @ salta para o fim da syscall
 
             motor1_sms:
-            bic r3, r3, #MOTOR_1_MASK         @ remove a velocidade atual do motor 0
+            bic r3, r3, #MOTOR_1_MASK                               @ remove a velocidade atual do motor 0
             lsl r1, r1, #26                                         @ desloca a velocidade desejada para se adequar a DR
             orr r3, r3, r1                                          @ insere a nova velocidade no valor resultante de DR
             str r3, [r4]                                            @ atualiza o valor de DR
@@ -361,8 +361,8 @@ interrupt_vector:
             ldr r4, =GPIO_DR                                        @ carrega o endereco do registrador DR em r4
             ldr r3, [r4]                                            @ carrega o valor contido no registrador DR em r3
 
-            bic r3, r3, #MOTOR_0_MASK         @ remove a velocidade atual do motor 0
-            bic r3, r3, #MOTOR_1_MASK         @ remove a velocidade atual do motor 1
+            bic r3, r3, #MOTOR_0_MASK                               @ remove a velocidade atual do motor 0
+            bic r3, r3, #MOTOR_1_MASK                               @ remove a velocidade atual do motor 1
             lsl r1, r1, #19                                         @ desloca a velocidade desejada para se adequar a DR (motor 0)
             orr r3, r3, r1                                          @ insere a nova velocidade do motor 0 no valor resultante de DR
             lsl r1, r1, #26                                         @ desloca a velocidade desejada para se adequar a DR (motor 1)
