@@ -10,27 +10,6 @@ interrupt_vector:
     .org 0x18
         b IRQ_HANDLER
 
-.data
-    .align 4
-
-    @ alocacao da variavel para o tempo do sistema
-    SYSTEM_TIME: .word 0
-
-    @ alocacao das variaveis para tratamento de alarmes
-    ALARMS_COUNT:   .word 0
-    ALARMS_PTR:     .fill MAX_ALARMS, 32, 0
-    ALARMS_PTR:     .fill MAX_ALARMS, 32, 0
-    ALARMS_TIME:    .fill MAX_ALARMS, 32, 0
-
-    @ alocacao das variaveis de pilhas
-    STACK_POINTER   .skip STACK_SIZE * 4
-
-    @ alocacao das variaveis para tratamento de callbacks
-    CALLBACKS_COUNT:  .word 0
-    CALLBACKS_PTR:    .fill MAX_CALLBACKS, 32, 0
-    CALLBACKS_SON_ID: .fill MAX_CALLBACKS, 32, 0
-    CALLBACKS_DIST:   .fill MAX_CALLBACKS, 32, 0
-
     @ inicio do codigo
     .org 0x100
 
@@ -48,9 +27,19 @@ interrupt_vector:
     .set GPT_OCR_ONE,           0x53FA0010
 
     @ GPIO addresses
-    .set GPIO_DR                0x53F84000
-    .set GPIO_GDIR              GPIO_DR + 0x04
-    .set GPIO_PSR               GPIO_DR + 0x08
+    .set GPIO_DR,               0x53F84000
+    .set GPIO_GDIR,             GPIO_DR + 0x04
+    .set GPIO_PSR,              GPIO_DR + 0x08
+
+    @ GPIO masks
+    .set GDIR_MASK,             0b11111111111111000000000000111110
+    .set SONAR_ID_MASK,         0b00000000000000000000000000111100
+    .set SONAR_DATA_MASK,       0b00000000000000111111111111000000
+    .set TRIGGER_MASK,          0b00000000000000000000000000000010
+    .set MOTOR_0_MASK,          0b00000001111111000000000000000000
+    .set MOTOR_1_MASK,          0b11111110000000000000000000000000
+    .set ENABLE_ISOLATOR,       0b11111111111111111111111111111110
+    .set SONAR_DATA_ISOLATOR,   0b01111111111111000000000000111111
 
     @ TZIC addresses
     .set TZIC_BASE,             0x0FFFC000
@@ -65,8 +54,8 @@ interrupt_vector:
     .set MAX_ALARMS,            8
     .set MAX_CALLBACKS,         8
     .set TIME_SZ,               2000
-    .set MIN_SENSOR_ID          0
-    .set MAX_SENSOR_ID          15
+    .set MIN_SENSOR_ID,         0
+    .set MAX_SENSOR_ID,         15
 
     @ Stack constants
     .set STACK_SIZE,            1024
@@ -100,7 +89,7 @@ interrupt_vector:
 
             @ set max couting value
             ldr r2, =GPT_OCR_ONE
-            mov r3, =TIME_SZ
+            mov r3, #TIME_SZ
             str r3, [r2]
 
             @ enables output compare channel 1
@@ -112,7 +101,7 @@ interrupt_vector:
 
             @ set GDIR values according to hardware specifications
             ldr r2, =GPIO_GDIR
-            mov r3, =0b11111111111111000000000000111110
+            ldr r3, =GDIR_MASK
             str r3, [r2]
 
         SET_TZIC:
@@ -149,16 +138,18 @@ interrupt_vector:
 
             @ Set stacks
             ldr r1, =STACK_POINTER
+            ldr r2, =STACK_SIZE
+            ldr r2, [r2]
 
-            add r1, r1, =STACK_SIZE
+            add r1, r1, r2
             msr CPSR_c, #0x12       @ IRQ mode
             mov sp, r1
 
-            add r1, r1, =STACK_SIZE
+            add r1, r1, r2
             msr CPSR_c, #0x1F       @ SYSTEM mode
             mov sp, r1
 
-            add r1, r1, =STACK_SIZE
+            add r1, r1, r2
             msr CPSR_c, #0x13       @ Supervisor mode
             mov sp, r1
 
@@ -204,7 +195,7 @@ interrupt_vector:
         movs pc, lr
 
         READ_SONAR:
-            stmfd sp!, {r1-r4, lr}
+            stmfd sp!, {r1-r5, lr}
 
             @ verfica erros
             mov r1, #0
@@ -218,29 +209,30 @@ interrupt_vector:
             ldr r4, =GPIO_DR                                        @ carrega o endereco do registrador DR em r4
             ldr r3, [r4]                                            @ carrega o valor contido no registrador DR em r3
 
-            bic r3, r3, #0b00000000000000111111111111111100         @ remove o identificador e o valor de leitura do sonar atual
+            bic r3, r3, #SONAR_ID_MASK                              @ remove o identificador do sonar atual
             lsl r0, r0, #2                                          @ desloca o identificador do sonar para se adequar a DR
             orr r3, r3, r0                                          @ insere o novo identificador do sonar no valor resultante de DR
             str r3, [r4]                                            @ atualiza o valor de DR
 
             trigger_activator:
                 ldr r3, [r4]                                        @ carrega o o valor de DR em r3
-                bic r3, r3, #0b00000000000000000000000000000010     @ desativa trigger
+                bic r3, r3, #TRIGGER_MASK                           @ desativa trigger
                 str r3, [r4]                                        @ atualiza o valor de DR
                 @ delay de 15ms
-                orr r3, r3, #0b00000000000000000000000000000010     @ ativa trigger
+                orr r3, r3, #TRIGGER_MASK                           @ ativa trigger
                 str r3, [r4]                                        @ atualiza o valor de DR
                 @ delay de 15ms
-                bic r3, r3, #0b00000000000000000000000000000010     @ desativa trigger
+                bic r3, r3, #TRIGGER_MASK                           @ desativa trigger
                 str r3, [r4]                                        @ atualiza o valor de DR
 
             flag_activator:
                 @ delay de 10ms
                 ldr r3, [r4]                                        @ carrega novamente o valor de DR em r3
-                bic r3, r3, #0b11111111111111111111111111111110     @ restaura apenas o valor de 'enable'
+                bic r3, r3, #ENABLE_ISOLATOR                        @ restaura apenas o valor de 'enable'
                 cmp r5, #1                                          @ verifica se enable esta ativo
                 bne flag_activator                                  @ se nao estiver, continua esperando
-                bic r3, r3, #0b01111111111111000000000000111111     @ se estiver, restaura o valor de 'sonar data'
+                ldr r5, =SONAR_DATA_ISOLATOR                        @ se estiver,
+                bic r3, r3, r5                                      @ restaura o valor de 'sonar data'
                 lsr r3, r3, #6                                      @ desloca o valor de 'sonar data'
                 mov r0, r3                                          @ move o valor lido para o registrador de retorno r0
                 b fim_rs                                            @ pula para o fim da syscall
@@ -251,7 +243,7 @@ interrupt_vector:
 
             @ termina syscall
             fim_rs:
-                ldmfd sp!, {r1-r4, lr}
+                ldmfd sp!, {r1-r5, lr}
                 movs pc, lr
 
         REGISTER_PROXIMITY_CALLBACK:
@@ -329,14 +321,14 @@ interrupt_vector:
             cmp r0, #1                                              @ verifica qual motor esta sendo modificado
             beq motor1_sms                                          @ salta para a instrucao de configuracao do motor1
 
-            bic r3, r3, #0b00000001111111000000000000000000         @ remove a velocidade atual do motor 0
+            bic r3, r3, #MOTOR_0_MASK         @ remove a velocidade atual do motor 0
             lsl r1, r1, #19                                         @ desloca a velocidade desejada para se adequar a DR
             orr r3, r3, r1                                          @ insere a nova velocidade no valor resultante de DR
             str r3, [r4]                                            @ atualiza o valor de DR
             b fim_sms                                               @ salta para o fim da syscall
 
             motor1_sms:
-            bic r3, r3, #0b11111110000000000000000000000000         @ remove a velocidade atual do motor 0
+            bic r3, r3, #MOTOR_1_MASK         @ remove a velocidade atual do motor 0
             lsl r1, r1, #26                                         @ desloca a velocidade desejada para se adequar a DR
             orr r3, r3, r1                                          @ insere a nova velocidade no valor resultante de DR
             str r3, [r4]                                            @ atualiza o valor de DR
@@ -369,7 +361,8 @@ interrupt_vector:
             ldr r4, =GPIO_DR                                        @ carrega o endereco do registrador DR em r4
             ldr r3, [r4]                                            @ carrega o valor contido no registrador DR em r3
 
-            bic r3, r3, #0b11111111111111000000000000000000         @ remove a velocidade atual de ambos os motores
+            bic r3, r3, #MOTOR_0_MASK         @ remove a velocidade atual do motor 0
+            bic r3, r3, #MOTOR_1_MASK         @ remove a velocidade atual do motor 1
             lsl r1, r1, #19                                         @ desloca a velocidade desejada para se adequar a DR (motor 0)
             orr r3, r3, r1                                          @ insere a nova velocidade do motor 0 no valor resultante de DR
             lsl r1, r1, #26                                         @ desloca a velocidade desejada para se adequar a DR (motor 1)
@@ -386,7 +379,7 @@ interrupt_vector:
 
             @ termina syscall
             fim_smss:
-                ldmfd sp!, r1-r4 lr}
+                ldmfd sp!, {r1-r4, lr}
                 movs pc, lr
 
         GET_TIME:
@@ -401,7 +394,7 @@ interrupt_vector:
         SET_TIME:
             stmfd sp!, {r1, lr}
 
-            ldr r1, #SYSTEM_TIME
+            ldr r1, =SYSTEM_TIME
             str r0, [r1]
 
             ldmfd sp!, {r1, lr}
@@ -517,3 +510,21 @@ interrupt_vector:
         @ retorna o fluxo
         sub lr, lr, #4
         movs pc, lr
+
+.data
+    @ alocacao da variavel para o tempo do sistema
+    SYSTEM_TIME: .word 0
+
+    @ alocacao das variaveis para tratamento de alarmes
+    ALARMS_COUNT:   .word 0
+    ALARMS_PTR:     .fill MAX_ALARMS, 8, 0
+    ALARMS_TIME:    .fill MAX_ALARMS, 8, 0
+
+    @ alocacao das variaveis de pilhas
+    STACK_POINTER:   .skip STACK_SIZE * 4
+
+    @ alocacao das variaveis para tratamento de callbacks
+    CALLBACKS_COUNT:  .word 0
+    CALLBACKS_PTR:    .fill MAX_CALLBACKS, 8, 0
+    CALLBACKS_SON_ID: .fill MAX_CALLBACKS, 8, 0
+    CALLBACKS_DIST:   .fill MAX_CALLBACKS, 8, 0
