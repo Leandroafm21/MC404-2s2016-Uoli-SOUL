@@ -67,8 +67,8 @@ interrupt_vector:
 
         SET_GDIR:
             .set GPIO_DR                0x53F84000
-            .set GPIOR_GDIR             GPIO_DR + 0x04
-            .set GPIOR_PSR              GPIO_DR + 0x08
+            .set GPIO_GDIR             GPIO_DR + 0x04
+            .set GPIO_PSR              GPIO_DR + 0x08
 
         SET_TZIC:
             @ constantes para os enderecos do TZIC
