@@ -29,6 +29,9 @@ interrupt_vector:
     ALARMS_PTR:     .skip 32 * MAX_ALARMS
     ALARMS_TIME:    .skip 32 * MAX_ALARMS
 
+    @ alocacao das variaveis de pilhas
+    STACK_POINTER:        .skip STACK_SIZE * 4
+
     @ alocacao das variaveis para tratamento de callbacks
     CALLBACKS_COUNT:  .word 0
     CALLBACKS_PTR:    .skip 32 * MAX_CALLBACKS
@@ -69,6 +72,9 @@ interrupt_vector:
     .set MAX_ALARMS,            8
     .set MAX_CALLBACKS,         8
     .set TIME_SZ,               2000
+
+    @ Stack constants
+    .set STACK_SIZE,            1024
 
     @@@@@@@@@@@@@@@@@@@@
     @ System Initiator @
@@ -144,14 +150,28 @@ interrupt_vector:
             mov	r0, #1
             str	r0, [r1, #TZIC_INTCTRL]
 
-            @ enables interruptions
-            msr  CPSR_c, #0x13       @ SUPERVISOR mode, IRQ/FIQ enabled
+        SET_STACK_POINTERS:
 
-    SET_STACK_POINTERS:
-        @ continuar
+            @ Set stacks
+            ldr r1, =STACK_POINTER
 
-    RETURN_USER:
-        @ continuar
+            add r1, r1, =STACK_SIZE
+            msr CPSR_c, #0x12       @ IRQ mode
+            mov sp, r1
+
+            add r1, r1, =STACK_SIZE
+            msr CPSR_c, #0x1F       @ SYSTEM mode
+            mov sp, r1
+
+            add r1, r1, =STACK_SIZE
+            msr CPSR_c, #0x13       @ Supervisor mode
+            mov sp, r1
+
+        RETURN_USER:
+
+            ldr r0, =0x77802000     @ default start section of the code
+            msr CPSR_c, #0x104      @ change to USER mode
+            bx r0                   @ start program
 
     @@@@@@@@@@@@
     @ Handlers @
