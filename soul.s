@@ -21,11 +21,19 @@ interrupt_vector:
     .set MAX_ALARMS,                    #8
     .set MAX_CALLBACKS                  #8
     .set TIME_SZ                        #2000
+    .set MIN_SENSOR_ID                  #0
+    .set MAX_SENSOR_ID                  #15
 
     @ alocacao das variaveis para tratamento de alarmes
     ALARMS_COUNT:   .word 0
     ALARMS_PTR:     .skip 32 * MAX_ALARMS
     ALARMS_TIME:    .skip 32 * MAX_ALARMS
+
+    @ alocacao das variaveis para tratamento de callbacks
+    CALLBACKS_COUNT:  .word 0
+    CALLBACKS_PTR:    .skip 32 * MAX_CALLBACKS
+    CALLBACKS_SON_ID: .skip 32 * MAX_CALLBACKS
+    CALLBACKS_DIST:   .skip 32 * MAX_CALLBACKS
 
     @ inicio do codigo
     .org 0x100
@@ -208,7 +216,52 @@ interrupt_vector:
                 movs pc, lr
 
         REGISTER_PROXIMITY_CALLBACK:
-            @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ continuar
+            stmfd sp!, {r4-r11, lr}
+
+            @ verifica se ha espaco
+            ldr r4, =CALLBACKS_COUNT
+            ldr r5, [r4]
+
+            cmp r5, #MAX_CALLBACKS @ COUNT <= MAX
+            blt CALLBACKS_AVAILABLE
+
+            @ retornar -1 em caso de estouro
+            mov r0, #-1
+            movs pc, lr
+
+            CALLBACKS_AVAILABLE:
+            @ verificar validade do id do sensor
+            cmp r0, #MIN_SENSOR_ID
+            bge VALID_GTMIN
+
+            @ retornar -2 em caso de sensor invalido
+            mov r0, #-2
+            movs pc, lr
+
+            VALID_GTMIN:
+            cmp r0, #MAX_SENSOR_ID
+            ble VALID_LEMAX
+
+            @ retornar -2 em caso de sensor invalido
+            mov r0, #-2
+            movs pc, lr
+
+            VALID_LEMAX:
+            ldr r6, =CALLBACKS_SON_ID
+            str r0, [r6, r5, lsl #5] @ CALLBACKS_SON_ID + 32 * CALLBACKS_COUNT = r0
+
+            ldr r7, =CALLBACKS_PTR
+            str r2, [r7, r5, lsl #5] @ CALLBACKS_PTR + 32 * CALLBACKS_COUNT = r0
+
+            ldr r8, =CALLBACKS_DIST
+            str r1, [r8, r5, lsl #5] @ CALLBACKS_DIST + 32 * CALLBACKS_COUNT = r0
+
+            add r5, r5, #1 @ incrementa o contador de callbacks
+            str r5, [r4]
+
+            ldmfd sp!, {r4-r11, lr}
+
+            movs pc, lr
 
         SET_MOTOR_SPEED:
             stmfd sp!, {r4-r11, lr}
@@ -319,7 +372,7 @@ interrupt_vector:
             ldr r6, =ALARMS_COUNT
             ldr r7, [r6]
             cmp r7, #MAX_ALARMS
-            ble ALARMS_AVAILABLE
+            blt ALARMS_AVAILABLE
             @ retornar -1 em caso de estouro
             mov r0, #-1
             movs pc, lr
