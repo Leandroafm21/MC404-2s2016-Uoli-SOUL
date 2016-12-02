@@ -16,83 +16,100 @@ interrupt_vector:
     @ alocacao da variavel para o tempo do sistema
     SYSTEM_TIME: .word 0
 
-    @ alocacao de limiares
-    .set MAX_SPEED,                     #63
-    .set MAX_ALARMS,                    #8
-    .set MAX_CALLBACKS                  #8
-    .set TIME_SZ                        #2000
-
-
     @ inicio do codigo
     .org 0x100
 
 .text
+    
+    @@@@@@@@@@@@@
+    @ Constants @
+    @@@@@@@@@@@@@
+
+    @ GPT addresses
+    .set GPT_CR,                0x53FA0000
+    .set GPT_PR,                0x53FA0004
+    .set GPT_SR,                0x53FA0008
+    .set GPT_IR,                0x53FA000C
+    .set GPT_OCR_ONE,           0x53FA0010
+    
+    @ GPIO addresses
+    .set GPIO_DR                0x53F84000
+    .set GPIO_GDIR              GPIO_DR + 0x04
+    .set GPIO_PSR               GPIO_DR + 0x08
+    
+    @ TZIC addresses
+    .set TZIC_BASE,             0x0FFFC000
+    .set TZIC_INTCTRL,          0x0
+    .set TZIC_INTSEC1,          0x84
+    .set TZIC_ENSET1,           0x104
+    .set TZIC_PRIOMASK,         0xC
+    .set TZIC_PRIORITY9,        0x424
+    
+    @ System constants
+    .set MAX_SPEED,             63
+    .set MAX_ALARMS,            8
+    .set MAX_CALLBACKS,         8
+    .set TIME_SZ,               2000
+    
+    @@@@@@@@@@@@@@@@@@@@
+    @ System Initiator @
+    @@@@@@@@@@@@@@@@@@@@
+    
     RESET_HANDLER:
-        @ inicializa o tempo do sistema com o valor 0
+    
+        @ set system time as 0
         ldr r2, =SYSTEM_TIME
         mov r0, #0
         str r0, [r2]
 
-        @ configura a tabela de interrupcao
+        @ configures interrupt table
         ldr r0, =interrupt_vector
         mcr p15, 0, r0, c12, c0, 0
 
         SET_GPT:
-            @ constantes para os enderecos do GPT
-            .set GPT_CR,                0x53FA0000
-            .set GPT_PR,                0x53FA0004
-            .set GPT_SR,                0x53FA0008
-            .set GPT_IR,                0x53FA000C
-            .set GPT_OCR_ONE,           0x53FA0010
 
-            @ habilita registro de controle e configura contador de ciclos de relogio
+            @ enable control register and configures clock cycles counter
             ldr r2, =GPT_CR
             mov r3, #0x00000041
             str r3, [r2]
 
-            @ zera o prescaler
+            @ set prescaler to 0
             ldr r2, =GPT_PR
             mov r3, #0
             str r3, [r2]
 
-            @ insere o valor maximo da contagem
+            @ set max couting value
             ldr r2, =GPT_OCR_ONE
             mov r3, =TIME_SZ
             str r3, [r2]
 
-            @ habilita o canal de comparacao de saida
+            @ enables output compare channel 1
             ldr r2, =GPT_IR
             mov r3, #1
             str r3, [r2]
 
-        SET_GDIR:
-            .set GPIO_DR                0x53F84000
-            .set GPIO_GDIR             GPIO_DR + 0x04
-            .set GPIO_PSR              GPIO_DR + 0x08
+        SET_GPIO:
+            
+            @ set GDIR values according to hardware specifications
+            ldr r2, =GPIO_GDIR
+            mov r3, =0b11111111111111000000000000111110
+            str r3, [r2]
 
         SET_TZIC:
-            @ constantes para os enderecos do TZIC
-            .set TZIC_BASE,             0x0FFFC000
-            .set TZIC_INTCTRL,          0x0
-            .set TZIC_INTSEC1,          0x84
-            .set TZIC_ENSET1,           0x104
-            .set TZIC_PRIOMASK,         0xC
-            .set TZIC_PRIORITY9,        0x424
-
-            @ liga o controlador de interrupcoes
-            @ R1 <= TZIC_BASE
+        
+            @ r1 <= TZIC_BASE
             ldr	r1, =TZIC_BASE
 
-            @ configura interrupcao 39 do GPT como nao segura
+            @ configures interrupt 39 as unsafe
             mov	r0, #(1 << 7)
             str	r0, [r1, #TZIC_INTSEC1]
 
-            @ habilita interrupcao 39 (GPT)
+            @ enables interrupt39 (GPT)
             @ reg1 bit 7 (gpt)
             mov	r0, #(1 << 7)
             str	r0, [r1, #TZIC_ENSET1]
 
-            @ configura a prioridade da interrupcao 39 para 1
+            @ configures interrupt39 priority to 1
             @ reg9, byte 3
             ldr r0, [r1, #TZIC_PRIORITY9]
             bic r0, r0, #0xFF000000
@@ -100,97 +117,95 @@ interrupt_vector:
             orr r0, r0, r2, lsl #24
             str r0, [r1, #TZIC_PRIORITY9]
 
-            @ configura PRIOMASK como 0
+            @ set PRIOMASK as 0
             eor r0, r0, r0
             str r0, [r1, #TZIC_PRIOMASK]
 
-            @ habilita o controlador de interrupcoes
+            @ enables interruption controller
             mov	r0, #1
             str	r0, [r1, #TZIC_INTCTRL]
 
-            @ habilita interrupcoes
+            @ enables interruptions
             msr  CPSR_c, #0x13       @ SUPERVISOR mode, IRQ/FIQ enabled
-
-            @ aguarda interrupcao
-            loop:
-                b loop
+    
+    SET_STACK_POINTERS:
+        @ continuar
+    
+    RETURN_USER:
+        @ continuar
+    
+    @@@@@@@@@@@@
+    @ Handlers @
+    @@@@@@@@@@@@
 
     SVC_HANDLER:
-        @ habilita interrupcoes
-        msr  CPSR_c, #0x13       @ SUPERVISOR mode, IRQ/FIQ enabled
 
         @ le e realiza a syscall desejada
-        mov r8, #16
-        cmp r8, r7
-        bleq READ_SONAR
+        cmp r8, #16
+        beq READ_SONAR
+        
+        cmp r8, #17
+        beq REGISTER_PROXIMITY_CALLBACK
 
-        mov r8, #17
-        cmp r8, r7
-        bleq REGISTER_PROXIMITY_CALLBACK
-
-        mov r8, #18
-        cmp r8, r7
-        bleq SET_MOTOR_SPEED
-
-        mov r8, #19
-        cmp r8, r7
-        bleq SET_MOTORS_SPEED
-
-        mov r8, #20
-        cmp r8, r7
-        bleq GET_TIME
-
-        mov r8, #21
-        cmp r8, r7
+        cmp r8, #18
+        beq SET_MOTOR_SPEED
+        
+        cmp r8, #19
+        beq SET_MOTORS_SPEED
+        
+        cmp r8, #20
+        beq GET_TIME
+        
+        cmp r8, #21
         bleq SET_TIME
-
-        mov r8, #22
-        cmp r8, r7
-        bleq SET_ALARM
+        
+        cmp r8, #22
+        beq SET_ALARM
 
         @ retorna o fluxo
         sub lr, lr, #4
         movs pc, lr
 
         READ_SONAR:
-            stmfd sp!, {r4-r11, lr}
+            stmfd sp!, {r1-r4, lr}
 
             @ verfica erros
             mov r1, #0
             cmp r0, r1
-            blt erro_rs
+            blt erro_rs                                             @ valor do sonar invalido
             mov r1, #15
             cmp r0, r1
-            bgt erro_rs
+            bgt erro_rs                                             @ valor do sonar invalido
 
             @ realiza a leitura de um sonar
             ldr r4, =GPIO_DR                                        @ carrega o endereco do registrador DR em r4
             ldr r3, [r4]                                            @ carrega o valor contido no registrador DR em r3
 
-            bic r3, r3, #0b00000000000000111111111111111101         @ remove o identificador e o valor de leitura do sonar atual e desativa 'enable'
-            lsl r0, r0, #27                                         @ desloca o identificador do sonar para se adequar a DR
-            add r3, r3, r1                                          @ insere o novo identificador do sonar no valor resultante de DR
+            bic r3, r3, #0b00000000000000111111111111111100         @ remove o identificador e o valor de leitura do sonar atual
+            lsl r0, r0, #2                                          @ desloca o identificador do sonar para se adequar a DR
+            orr r3, r3, r0                                          @ insere o novo identificador do sonar no valor resultante de DR
             str r3, [r4]                                            @ atualiza o valor de DR
 
             trigger_activator:
-                ldr r7, =GPIO_PSR                                   @ carrega o endereco do registrador PSR em r5
+                ldr r3, [r4]                                        @ carrega o o valor de DR em r3
                 bic r3, r3, #0b00000000000000000000000000000010     @ desativa trigger
                 str r3, [r4]                                        @ atualiza o valor de DR
                 @ delay de 15ms
-                add r3, r3, #0b00000000000000000000000000000010     @ ativa trigger
+                orr r3, r3, #0b00000000000000000000000000000010     @ ativa trigger
                 str r3, [r4]                                        @ atualiza o valor de DR
                 @ delay de 15ms
                 bic r3, r3, #0b00000000000000000000000000000010     @ desativa trigger
                 str r3, [r4]                                        @ atualiza o valor de DR
-
-                ldr r5, [r7]                                        @ carrega o valor contido no registrador PSR em r5
-                bic r5, r5, #0b11111111111111111111111111111110     @ restaura apenas o valor de 'enable'
+            
+            flag_activator:
+                @ delay de 10ms
+                ldr r3, [r4]                                        @ carrega novamente o valor de DR em r3
+                bic r3, r3, #0b11111111111111111111111111111110     @ restaura apenas o valor de 'enable'
                 cmp r5, #1                                          @ verifica se enable esta ativo
-                bne trigger_activator                               @ se nao estiver, realiza outra ativacao do trigger
-                ldr r6, [r7]                                        @ se estiver, carrega novamente o valor contido no registrador PSR, agora em r6
-                bic r6, r6, #0b01111111111111000000000000111111     @ restaura apenas o valor de 'sonar data'
-                lsr r6, r6, #6                                      @ desloca o valor de 'sonar data'
-                mov r0, r6                                          @ move o valor lido para o registrador de retorno r0
+                bne flag_activator                                  @ se nao estiver, continua esperando
+                bic r3, r3, #0b01111111111111000000000000111111     @ se estiver, restaura o valor de 'sonar data'
+                lsr r3, r3, #6                                      @ desloca o valor de 'sonar data'
+                mov r0, r3                                          @ move o valor lido para o registrador de retorno r0
                 b fim_rs                                            @ pula para o fim da syscall
 
             @ trata erros
@@ -199,26 +214,25 @@ interrupt_vector:
 
             @ termina syscall
             fim_rs:
-                ldmfd sp!, {r4-r11, lr}
-                sub lr, lr, #4
+                ldmfd sp!, {r1-r4, lr}
                 movs pc, lr
 
         REGISTER_PROXIMITY_CALLBACK:
             @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ continuar
 
         SET_MOTOR_SPEED:
-            stmfd sp!, {r4-r11, lr}
+            stmfd sp!, {r1-r4, lr}
 
             @ verifica erros
             mov r2, #0
             cmp r0, r2
-            blt erro_sms_mot
+            blt erro_sms_mot                                        @ valor de motor invalido
             mov r2, #1
             cmp r0, r2
-            bgt erro_sms_mot
+            bgt erro_sms_mot                                        @ valor de motor invalido
             mov r2, MAX_SPEED
             cmp r1, r2
-            bgt erro_sms_vel
+            bgt erro_sms_vel                                        @ velocidade invalida
 
             @ atualiza valores de de velocidade
             ldr r4, =GPIO_DR                                        @ carrega o endereco do registrador DR em r4
@@ -228,15 +242,15 @@ interrupt_vector:
             beq motor1_sms                                          @ salta para a instrucao de configuracao do motor1
 
             bic r3, r3, #0b00000001111111000000000000000000         @ remove a velocidade atual do motor 0
-            lsl r1, r1, #18                                         @ desloca a velocidade desejada para se adequar a DR
-            add r3, r3, r1                                          @ insere a nova velocidade no valor resultante de DR
+            lsl r1, r1, #19                                         @ desloca a velocidade desejada para se adequar a DR
+            orr r3, r3, r1                                          @ insere a nova velocidade no valor resultante de DR
             str r3, [r4]                                            @ atualiza o valor de DR
             b fim_sms                                               @ salta para o fim da syscall
 
             motor1_sms:
             bic r3, r3, #0b11111110000000000000000000000000         @ remove a velocidade atual do motor 0
-            lsl r1, r1, #25                                         @ desloca a velocidade desejada para se adequar a DR
-            add r3, r3, r1                                          @ insere a nova velocidade no valor resultante de DR
+            lsl r1, r1, #26                                         @ desloca a velocidade desejada para se adequar a DR
+            orr r3, r3, r1                                          @ insere a nova velocidade no valor resultante de DR
             str r3, [r4]                                            @ atualiza o valor de DR
             b fim_sms                                               @ salta para o fim da syscall
 
@@ -249,30 +263,29 @@ interrupt_vector:
 
             @ termina syscall
             fim_sms:
-                ldmfd sp!, {r4-r11, lr}
-                sub lr, lr, #4
+                ldmfd sp!, {r1-r4, lr}
                 movs pc, lr
 
         SET_MOTORS_SPEED:
-            stmfd sp!, {r4-r11, lr}
+            stmfd sp!, {r1-r4, lr}
 
             @ verifica erros
             mov r2, MAX_SPEED
             cmp r0, r2
-            blt erro_smss_1
+            blt erro_smss_1                                         @ velocidade invalida
             mov r2, MAX_SPEED
             cmp r1, r2
-            blt erro_smss_2
+            blt erro_smss_2                                         @ velocidade invalida
 
             @ atualiza valores de velocidade
             ldr r4, =GPIO_DR                                        @ carrega o endereco do registrador DR em r4
             ldr r3, [r4]                                            @ carrega o valor contido no registrador DR em r3
 
             bic r3, r3, #0b11111111111111000000000000000000         @ remove a velocidade atual de ambos os motores
-            lsl r1, r1, #18                                         @ desloca a velocidade desejada para se adequar a DR (motor 0)
-            add r3, r3, r1                                          @ insere a nova velocidade do motor 0 no valor resultante de DR
-            lsl r1, r1, #25                                         @ desloca a velocidade desejada para se adequar a DR (motor 1)
-            add r3, r3, r1                                          @ insere a nova velocidade do motor 1 no valor resultante de DR
+            lsl r1, r1, #19                                         @ desloca a velocidade desejada para se adequar a DR (motor 0)
+            orr r3, r3, r1                                          @ insere a nova velocidade do motor 0 no valor resultante de DR
+            lsl r1, r1, #26                                         @ desloca a velocidade desejada para se adequar a DR (motor 1)
+            orr r3, r3, r1                                          @ insere a nova velocidade do motor 1 no valor resultante de DR
             str r3, [r4]                                            @ atualiza o valor de DR
             b fim_smss                                              @ salta para o fim da syscall
 
@@ -285,27 +298,25 @@ interrupt_vector:
 
             @ termina syscall
             fim_smss:
-                ldmfd sp!, {r4-r11, lr}
-                sub lr, lr, #4
+                ldmfd sp!, r1-r4 lr}
                 movs pc, lr
 
         GET_TIME:
-            stmfd sp!, {r4-r11, lr}
+            stmfd sp!, {lr}
 
             mov r0, =SYSTEM_TIME
+            ldr r0, [r0]
 
-            ldmfd sp!, {r4-r11, lr}
-            sub lr, lr, #4
+            ldmfd sp!, {lr}
             movs pc, lr
 
         SET_TIME:
-            stmfd sp!, {r4-r11, lr}
+            stmfd sp!, {r1, lr}
 
             ldr r1, =SYSTEM_TIME
             str r0, [r1]
 
-            ldmfd sp!, {r4-r11, lr}
-            sub lr, lr, #4
+            ldmfd sp!, {r1, lr}
             movs pc, lr
 
         SET_ALARM:
