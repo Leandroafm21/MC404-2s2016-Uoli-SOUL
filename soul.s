@@ -321,6 +321,8 @@ interrupt_vector:
             movs pc, lr
 
         SET_MOTOR_SPEED:
+            ldmfd sp!, {r1, r2}         @ tira da stack os argumentos
+
             stmfd sp!, {r1-r4, lr}
 
             @ verifica erros
@@ -476,8 +478,8 @@ interrupt_vector:
     IRQ_HANDLER:
         stmfd sp!, {r0-r12, lr}
 
-        mrs r0, SPSR
-        stmfd sp!, {r0} @ salva modo SPSR na stack
+        @mrs r0, SPSR
+        @stmfd sp!, {r0} @ salva modo SPSR na stack
 
         @ informa que o processador sabe sobre a ocorrencia da interrupcao
         ldr r2, =GPT_SR
@@ -491,11 +493,13 @@ interrupt_vector:
         str r1, [r0]
 
         @ TRATAMENTO DE ALARMES:
+        
         ldr r2, =ALARMS_TIME            @carrega ponteiro do vetor de tempo dos alarmes
         ldr r5, =ALARMS_PTR             @carrega ponteiro do vetor de funcoes dos alarmes
         ldr r8, =ALARMS_COUNT
-        mov r3, #0                      @indice
+        mov r3, #-1                      @indice
         handle_alarms:
+            add r3, r3, #1
             cmp r3, #MAX_ALARMS         @verifica se chegamos ao final da lista de alarmes
             bhi end_alarms
             ldr r4, [r2, r3, lsl #3]    @carrega tempo do alarme
@@ -519,15 +523,16 @@ interrupt_vector:
             str r10, [r2, r3, lsl #3]   @limpa o tempo do alarme
             b handle_alarms
 
-        end_alarms:
+       end_alarms:
 
         @ TRATAMENTO DE SENSOR CALLBACKS:
         ldr r1, =CALLBACKS_COUNT
         ldr r2, =CALLBACKS_PTR
         ldr r3, =CALLBACKS_DIST
         ldr r4, =CALLBACKS_SON_ID
-        mov r5, #0 @indice
+        mov r5, #-1 @indice
         handle_callbacks:
+            add r5, r5, #1
             cmp r5, #MAX_CALLBACKS      @verifica se chegamos ao final da lista de callbacks
             bhi end_callbacks
             ldr r6, [r3, r5, lsl #3]    @carrega a distancia
@@ -556,8 +561,8 @@ interrupt_vector:
 
         end_callbacks:
 
-        ldmfd sp!, {r0} @ recupera o modo SPSR
-        msr SPSR, r0
+        @ldmfd sp!, {r0} @ recupera o modo SPSR
+        @msr SPSR, r0
 
         ldmfd sp!, {r0-r12, lr}
 
