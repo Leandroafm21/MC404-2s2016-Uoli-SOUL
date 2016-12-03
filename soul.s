@@ -152,10 +152,10 @@ interrupt_vector:
             msr CPSR_c, #0x13       @ Supervisor mode
             mov sp, r1
 
-        RETURN_USER:
+        RETURN_USER:        
 
-            ldr r0, =0x77802000     @ default start section of the code
             msr CPSR_c, #0x10       @ change to USER mode
+            ldr r0, =0x77802000     @ default start section of the LoCo code
             bx r0                   @ start program
 
     @@@@@@@@@@@@
@@ -321,8 +321,6 @@ interrupt_vector:
             movs pc, lr
 
         SET_MOTOR_SPEED:
-            ldmfd sp!, {r1, r2}         @ tira da stack os argumentos
-
             stmfd sp!, {r1-r4, lr}
 
             @ verifica erros
@@ -478,8 +476,8 @@ interrupt_vector:
     IRQ_HANDLER:
         stmfd sp!, {r0-r12, lr}
 
-        @mrs r0, SPSR
-        @stmfd sp!, {r0} @ salva modo SPSR na stack
+        mrs r0, SPSR
+        stmfd sp!, {r0} @ salva modo SPSR na stack
 
         @ informa que o processador sabe sobre a ocorrencia da interrupcao
         ldr r2, =GPT_SR
@@ -523,7 +521,7 @@ interrupt_vector:
             str r10, [r2, r3, lsl #3]   @limpa o tempo do alarme
             b handle_alarms
 
-       end_alarms:
+        end_alarms:
 
         @ TRATAMENTO DE SENSOR CALLBACKS:
         ldr r1, =CALLBACKS_COUNT
@@ -561,8 +559,8 @@ interrupt_vector:
 
         end_callbacks:
 
-        @ldmfd sp!, {r0} @ recupera o modo SPSR
-        @msr SPSR, r0
+        ldmfd sp!, {r0} @ recupera o modo SPSR
+        msr SPSR, r0
 
         ldmfd sp!, {r0-r12, lr}
 
