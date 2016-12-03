@@ -245,17 +245,17 @@ interrupt_vector:
 
             @ espera por r10 ms
             delay:
-                stmfd sp!, {r1, r10, lr}
+                stmfd sp!, {r1-r2, r10, lr}
 
-                mov r1, #200
-                mul r1, r1, r10
+                mov r2, #200
+                mul r1, r2, r10
 
                 count:
                     sub r1, r1, #1
                     cmp r1, #0
                     bgt count
 
-                ldmfd sp!, {r1, r10, pc}
+                ldmfd sp!, {r1-r2, r10, pc}
 
             @ trata erros
             erro_rs:
