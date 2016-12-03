@@ -254,30 +254,30 @@ interrupt_vector:
             ldr r5, [r4]
 
             cmp r5, #MAX_CALLBACKS @ COUNT <= MAX
-            blt CALLBACKS_AVAILABLE
+            blt callbacks_available
 
             @ retornar -1 em caso de estouro
             mov r0, #-1
             movs pc, lr
 
-            CALLBACKS_AVAILABLE:
+            callbacks_available:
             @ verificar validade do id do sensor
             cmp r0, #MIN_SENSOR_ID
-            bge VALID_GTMIN
+            bge valid_gtmin
 
             @ retornar -2 em caso de sensor invalido
             mov r0, #-2
             movs pc, lr
 
-            VALID_GTMIN:
+            valid_gtmin:
             cmp r0, #MAX_SENSOR_ID
-            ble VALID_LEMAX
+            ble valid_lemax
 
             @ retornar -2 em caso de sensor invalido
             mov r0, #-2
             movs pc, lr
 
-            VALID_LEMAX:
+            valid_lemax:
 
             ldr r6, =CALLBACKS_SON_ID
             ldr r7, =CALLBACKS_PTR
@@ -407,22 +407,22 @@ interrupt_vector:
             ldr r6, =ALARMS_COUNT
             ldr r7, [r6]
             cmp r7, #MAX_ALARMS
-            blt ALARMS_AVAILABLE
+            blt alarms_available
             @ retornar -1 em caso de estouro
             mov r0, #-1
             movs pc, lr
 
-            ALARMS_AVAILABLE:
+            alarms_available:
             @ impede que o tempo seja menor que o tempo do sistema
             ldr r4, =SYSTEM_TIME
             ldr r5, [r4]
             cmp r1, r5 @ TIME >= SYSTEM_TIME?
-            bhs VALID_TIME
+            bhs valid_time
             @ retornar -2 em caso de tempo invalido
             mov r0, #-2
             movs pc, lr
 
-            VALID_TIME:
+            valid_time:
 
             ldr r4, =ALARMS_PTR         @ vetor de ponteiros
             mov r8, #-1                 @indice do vetor
