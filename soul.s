@@ -199,19 +199,19 @@ interrupt_vector:
             @ verfica erros
             mov r1, #0
             cmp r0, r1
-            blt erro_rs                                             @ valor do sonar invalido
+            blt erro_rs                         @ valor do sonar invalido
             mov r1, #15
             cmp r0, r1
-            bgt erro_rs                                             @ valor do sonar invalido
+            bgt erro_rs                         @ valor do sonar invalido
 
             @ realiza a leitura de um sonar
-            ldr r4, =GPIO_DR                                        @ carrega o endereco do registrador DR em r4
-            ldr r3, [r4]                                            @ carrega o valor contido no registrador DR em r3
+            ldr r4, =GPIO_DR                    @ carrega o endereco do registrador DR em r4
+            ldr r3, [r4]                        @ carrega o valor contido no registrador DR em r3
 
-            bic r3, r3, #SONAR_ID_MASK                              @ remove o identificador do sonar atual
-            lsl r0, r0, #2                                          @ desloca o identificador do sonar para se adequar a DR
-            orr r3, r3, r0                                          @ insere o novo identificador do sonar no valor resultante de DR
-            str r3, [r4]                                            @ atualiza o valor de DR
+            bic r3, r3, #SONAR_ID_MASK          @ remove o identificador do sonar atual
+            lsl r0, r0, #2                      @ desloca o identificador do sonar para se adequar a DR
+            orr r3, r3, r0                      @ insere o novo identificador do sonar no valor resultante de DR
+            str r3, [r4]                        @ atualiza o valor de DR
 
             trigger_activator:
                 ldr r3, [r4]                                        @ carrega o o valor de DR em r3
@@ -274,46 +274,46 @@ interrupt_vector:
             ldr r5, [r4]
 
             cmp r5, #MAX_CALLBACKS @ COUNT <= MAX
-            blt CALLBACKS_AVAILABLE
+            blt callbacks_available
 
             @ retornar -1 em caso de estouro
             mov r0, #-1
             movs pc, lr
 
-            CALLBACKS_AVAILABLE:
+            callbacks_available:
             @ verificar validade do id do sensor
             cmp r0, #MIN_SENSOR_ID
-            bge VALID_GTMIN
+            bge valid_gtmin
 
             @ retornar -2 em caso de sensor invalido
             mov r0, #-2
             movs pc, lr
 
-            VALID_GTMIN:
+            valid_gtmin:
             cmp r0, #MAX_SENSOR_ID
-            ble VALID_LEMAX
+            ble valid_lemax
 
             @ retornar -2 em caso de sensor invalido
             mov r0, #-2
             movs pc, lr
 
-            VALID_LEMAX:
+            valid_lemax:
 
             ldr r6, =CALLBACKS_SON_ID
             ldr r7, =CALLBACKS_PTR
             ldr r8, =CALLBACKS_DIST
-            mov r9, #-1 @indice
+            mov r9, #-1                 @indice
             callbacks_find_free:
-              add r9, r9, #1 @incrementa indice
+              add r9, r9, #1            @incrementa indice
               ldr r10, [r7, r9, lsl #3] @carrega ponteiro
-              cmp r10, #0 @verifica se o ponteiro eh invalido
+              cmp r10, #0               @verifica se o ponteiro eh invalido
               bne alarm_find_free
 
-            str r0, [r6, r9, lsl #3] @ CALLBACKS_SON_ID + 32 * CALLBACKS_COUNT = r0
-            str r2, [r7, r9, lsl #3] @ CALLBACKS_PTR + 32 * CALLBACKS_COUNT = r0
-            str r1, [r8, r9, lsl #3] @ CALLBACKS_DIST + 32 * CALLBACKS_COUNT = r0
+            str r0, [r6, r9, lsl #3]    @ CALLBACKS_SON_ID + 32 * CALLBACKS_COUNT = r0
+            str r2, [r7, r9, lsl #3]    @ CALLBACKS_PTR + 32 * CALLBACKS_COUNT = r0
+            str r1, [r8, r9, lsl #3]    @ CALLBACKS_DIST + 32 * CALLBACKS_COUNT = r0
 
-            add r5, r5, #1 @ incrementa o contador de callbacks
+            add r5, r5, #1              @ incrementa o contador de callbacks
             str r5, [r4]
 
             ldmfd sp!, {r4-r11, lr}
@@ -326,33 +326,33 @@ interrupt_vector:
             @ verifica erros
             mov r2, #0
             cmp r0, r2
-            blt erro_sms_mot                                        @ valor de motor invalido
+            blt erro_sms_mot            @ valor de motor invalido
             mov r2, #1
             cmp r0, r2
-            bgt erro_sms_mot                                        @ valor de motor invalido
+            bgt erro_sms_mot            @ valor de motor invalido
             mov r2, #MAX_SPEED
             cmp r1, r2
-            bgt erro_sms_vel                                        @ velocidade invalida
+            bgt erro_sms_vel            @ velocidade invalida
 
-            @ atualiza valores de de velocidade
-            ldr r4, =GPIO_DR                                        @ carrega o endereco do registrador DR em r4
-            ldr r3, [r4]                                            @ carrega o valor contido no registrador DR em r3
+                                        @ atualiza valores de de velocidade
+            ldr r4, =GPIO_DR            @ carrega o endereco do registrador DR em r4
+            ldr r3, [r4]                @ carrega o valor contido no registrador DR em r3
 
-            cmp r0, #1                                              @ verifica qual motor esta sendo modificado
-            beq motor1_sms                                          @ salta para a instrucao de configuracao do motor1
+            cmp r0, #1                  @ verifica qual motor esta sendo modificado
+            beq motor1_sms              @ salta para a instrucao de configuracao do motor1
 
-            bic r3, r3, #MOTOR_0_MASK                               @ remove a velocidade atual do motor 0
-            lsl r1, r1, #19                                         @ desloca a velocidade desejada para se adequar a DR
-            orr r3, r3, r1                                          @ insere a nova velocidade no valor resultante de DR
-            str r3, [r4]                                            @ atualiza o valor de DR
-            b fim_sms                                               @ salta para o fim da syscall
+            bic r3, r3, #MOTOR_0_MASK   @ remove a velocidade atual do motor 0
+            lsl r1, r1, #19             @ desloca a velocidade desejada para se adequar a DR
+            orr r3, r3, r1              @ insere a nova velocidade no valor resultante de DR
+            str r3, [r4]                @ atualiza o valor de DR
+            b fim_sms                   @ salta para o fim da syscall
 
             motor1_sms:
-            bic r3, r3, #MOTOR_1_MASK                               @ remove a velocidade atual do motor 0
-            lsl r1, r1, #26                                         @ desloca a velocidade desejada para se adequar a DR
-            orr r3, r3, r1                                          @ insere a nova velocidade no valor resultante de DR
-            str r3, [r4]                                            @ atualiza o valor de DR
-            b fim_sms                                               @ salta para o fim da syscall
+            bic r3, r3, #MOTOR_1_MASK   @ remove a velocidade atual do motor 0
+            lsl r1, r1, #26             @ desloca a velocidade desejada para se adequar a DR
+            orr r3, r3, r1              @ insere a nova velocidade no valor resultante de DR
+            str r3, [r4]                @ atualiza o valor de DR
+            b fim_sms                   @ salta para o fim da syscall
 
             @ trata erros
             erro_sms_mot:
@@ -372,10 +372,10 @@ interrupt_vector:
             @ verifica erros
             mov r2, #MAX_SPEED
             cmp r0, r2
-            blt erro_smss_1                                         @ velocidade invalida
+            blt erro_smss_1             @ velocidade invalida
             mov r2, #MAX_SPEED
             cmp r1, r2
-            blt erro_smss_2                                         @ velocidade invalida
+            blt erro_smss_2             @ velocidade invalida
 
             @ atualiza valores de velocidade
             ldr r4, =GPIO_DR                                        @ carrega o endereco do registrador DR em r4
@@ -427,37 +427,37 @@ interrupt_vector:
             ldr r6, =ALARMS_COUNT
             ldr r7, [r6]
             cmp r7, #MAX_ALARMS
-            blt ALARMS_AVAILABLE
+            blt alarms_available
             @ retornar -1 em caso de estouro
             mov r0, #-1
             movs pc, lr
 
-            ALARMS_AVAILABLE:
+            alarms_available:
             @ impede que o tempo seja menor que o tempo do sistema
             ldr r4, =SYSTEM_TIME
             ldr r5, [r4]
             cmp r1, r5 @ TIME >= SYSTEM_TIME?
-            bhs VALID_TIME
+            bhs valid_time
             @ retornar -2 em caso de tempo invalido
             mov r0, #-2
             movs pc, lr
 
-            VALID_TIME:
+            valid_time:
 
-            ldr r4, =ALARMS_PTR @ vetor de ponteiros
-            mov r8, #-1 @indice do vetor
+            ldr r4, =ALARMS_PTR         @ vetor de ponteiros
+            mov r8, #-1                 @indice do vetor
             alarm_find_free:
-              add r8, r8, #1 @incrementa indice
-              ldr r9, [r4, r8, lsl #3] @carrega ponteiro
-              cmp r9, #0 @ verifica se o ponteiro eh invalido
+              add r8, r8, #1            @incrementa indice
+              ldr r9, [r4, r8, lsl #3]  @carrega ponteiro
+              cmp r9, #0                @ verifica se o ponteiro eh invalido
               bne alarm_find_free
 
-            str r0, [r4, r8, lsl #3] @ guarda o ptr na posicao ALARMS_PTR + 32 * ALARMS_COUNT
+            str r0, [r4, r8, lsl #3]    @ guarda o ptr na posicao ALARMS_PTR + 32 * ALARMS_COUNT
 
-            ldr r5, =ALARMS_TIME @ vetor de tempos
-            str r1, [r5, r8, lsl #3] @ guarda o tempo na posicao ALARMS_TIME + 32 * ALARMS_COUNT
+            ldr r5, =ALARMS_TIME        @ vetor de tempos
+            str r1, [r5, r8, lsl #3]    @ guarda o tempo na posicao ALARMS_TIME + 32 * ALARMS_COUNT
 
-            add r7, r7, #1 @ incrementa o contador de alarmes
+            add r7, r7, #1              @ incrementa o contador de alarmes
             str r7, [r6]
 
             ldmfd sp!, {r4-r11, lr}
@@ -491,67 +491,67 @@ interrupt_vector:
         str r1, [r0]
 
         @ TRATAMENTO DE ALARMES:
-        ldr r2, =ALARMS_TIME @carrega ponteiro do vetor de tempo dos alarmes
-        ldr r5, =ALARMS_PTR @carrega ponteiro do vetor de funcoes dos alarmes
+        ldr r2, =ALARMS_TIME            @carrega ponteiro do vetor de tempo dos alarmes
+        ldr r5, =ALARMS_PTR             @carrega ponteiro do vetor de funcoes dos alarmes
         ldr r8, =ALARMS_COUNT
-        mov r3, #0 @indice
+        mov r3, #0                      @indice
         handle_alarms:
-            cmp r3, #MAX_ALARMS @verifica se chegamos ao final da lista de alarmes
+            cmp r3, #MAX_ALARMS         @verifica se chegamos ao final da lista de alarmes
             bhi end_alarms
-            ldr r4, [r2, r3, lsl #3] @carrega tempo do alarme
-            cmp r4, #0 @compara com tempo com 0, se igual, o alarme esta vazio
+            ldr r4, [r2, r3, lsl #3]    @carrega tempo do alarme
+            cmp r4, #0                  @compara com tempo com 0, se igual, o alarme esta vazio
             beq handle_alarms
-            @alarme existe, verificar se estamos em tempo de chamar a funcao
+                                        @alarme existe, verificar se estamos em tempo de chamar a funcao
             cmp r4, #SYSTEM_TIME
             bhs handle_alarms
-            @alarme deve ser ativado
-            ldr r6, [r5, r3, lsl #3] @carrega o ponteiro para funcao
+                                        @alarme deve ser ativado
+            ldr r6, [r5, r3, lsl #3]    @carrega o ponteiro para funcao
             stmfd sp!, {r0 - r4, lr}
-            msr CPSR_c, #0x10 @muda para modo usuario
-            blx r6 @chama a funcao
-            mov r7, #23 @volta para o modo irq
+            msr CPSR_c, #0x10           @muda para modo usuario
+            blx r6                      @chama a funcao
+            mov r7, #23                 @volta para o modo irq
             svc 0x0
             ldmfd sp!, {r0 - r4, lr}
-            ldr r9, [r8] @carrega o contador de alarmes
-            sub r9, r9, #1 @subtrai 1 do contador
-            str r9, [r8] @guarda o novo valor do contador
+            ldr r9, [r8]                @carrega o contador de alarmes
+            sub r9, r9, #1              @subtrai 1 do contador
+            str r9, [r8]                @guarda o novo valor do contador
             mov r10, #0
-            str r10, [r2, r3, lsl #3] @limpa o tempo do alarme
+            str r10, [r2, r3, lsl #3]   @limpa o tempo do alarme
             b handle_alarms
 
         end_alarms:
 
-        @ TRATAMENTO DE SENSOR CALLBACKS
+        @ TRATAMENTO DE SENSOR CALLBACKS:
         ldr r1, =CALLBACKS_COUNT
         ldr r2, =CALLBACKS_PTR
         ldr r3, =CALLBACKS_DIST
         ldr r4, =CALLBACKS_SON_ID
         mov r5, #0 @indice
         handle_callbacks:
-            cmp r5, #MAX_CALLBACKS @verifica se chegamos ao final da lista de callbacks
+            cmp r5, #MAX_CALLBACKS      @verifica se chegamos ao final da lista de callbacks
             bhi end_callbacks
-            ldr r6, [r3, r5, lsl #3] @carrega a distancia
-            cmp r6, #0 @se for 0, o callback esta vazio
+            ldr r6, [r3, r5, lsl #3]    @carrega a distancia
+            cmp r6, #0                  @se for 0, o callback esta vazio
             beq handle_callbacks
-            @callback existe, verificar distancia
-            ldr r0, [r4, r5, lsl #3] @carrega o id do sonar
-            ldr r7, [r3, r5, lsl #3] @carrega a distancia
+                                        @callback existe, verificar distancia
+            ldr r0, [r4, r5, lsl #3]    @carrega o id do sonar
+            ldr r7, [r3, r5, lsl #3]    @carrega a distancia
             bl READ_SONAR
             cmp r0, r7
             bgt handle_callbacks
-            @distancia menor q a limiar, chamar funcao
-            ldr r7, [r2, r5, lsl #3] @carrega o ponteiro para funcao
+                                        @distancia menor q a limiar, chamar funcao
+            ldr r7, [r2, r5, lsl #3]    @carrega o ponteiro para funcao
             stmfd sp!, {r0 - r4, lr}
-            msr CPSR_c, #0x10 @muda para modo usuario
-            blx r7 @chama a funcao
-            mov r7, #23 @volta para o modo irq
+            msr CPSR_c, #0x10           @muda para modo usuario
+            blx r7                      @chama a funcao
+            mov r7, #23                 @volta para o modo irq
             svc 0x0
             ldmfd sp!, {r0 - r4, lr}
-            ldr r8, [r1] @carrega o contador de alarmes
-            sub r8, r8, #1 @decrementa o contador
-            str r8, [r1] @guarda o novo valor
+            ldr r8, [r1]                @carrega o contador de alarmes
+            sub r8, r8, #1              @decrementa o contador
+            str r8, [r1]                @guarda o novo valor
             mov r10, #0
-            str r10, [r3, r5, lsl #3] @limpa a distancia
+            str r10, [r3, r5, lsl #3]   @limpa a distancia
             b handle_callbacks
 
         end_callbacks:
