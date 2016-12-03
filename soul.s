@@ -336,7 +336,7 @@ interrupt_vector:
             cmp r1, r2
             bgt erro_sms_vel            @ velocidade invalida
 
-                                        @ atualiza valores de de velocidade
+            @ atualiza valores de de velocidade
             ldr r4, =GPIO_DR            @ carrega o endereco do registrador DR em r4
             ldr r3, [r4]                @ carrega o valor contido no registrador DR em r3
 
@@ -493,7 +493,7 @@ interrupt_vector:
         str r1, [r0]
 
         @ TRATAMENTO DE ALARMES:
-        
+
         ldr r2, =ALARMS_TIME            @carrega ponteiro do vetor de tempo dos alarmes
         ldr r5, =ALARMS_PTR             @carrega ponteiro do vetor de funcoes dos alarmes
         ldr r8, =ALARMS_COUNT
