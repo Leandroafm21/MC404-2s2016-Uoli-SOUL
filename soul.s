@@ -28,8 +28,8 @@ interrupt_vector:
 
     @ GPIO addresses
     .set GPIO_DR,               0x53F84000
-    .set GPIO_GDIR,             GPIO_DR + 0x04
-    .set GPIO_PSR,              GPIO_DR + 0x08
+    .set GPIO_GDIR,             0x53F84004
+    .set GPIO_PSR,              0x53F84008
 
     @ GPIO masks
     .set GDIR_MASK,             0b11111111111111000000000000111110
@@ -139,7 +139,6 @@ interrupt_vector:
             @ Set stacks
             ldr r1, =STACK_POINTER
             ldr r2, =STACK_SIZE
-            ldr r2, [r2]
 
             add r1, r1, r2
             msr CPSR_c, #0x12       @ IRQ mode
@@ -156,7 +155,7 @@ interrupt_vector:
         RETURN_USER:
 
             ldr r0, =0x77802000     @ default start section of the code
-            msr CPSR_c, #0x104      @ change to USER mode
+            msr CPSR_c, #0x10       @ change to USER mode
             bx r0                   @ start program
 
     @@@@@@@@@@@@
@@ -166,28 +165,28 @@ interrupt_vector:
     SVC_HANDLER:
 
         @ le e realiza a syscall desejada
-        cmp r8, #16
+        cmp r7, #16
         beq READ_SONAR
 
-        cmp r8, #17
+        cmp r7, #17
         beq REGISTER_PROXIMITY_CALLBACK
 
-        cmp r8, #18
+        cmp r7, #18
         beq SET_MOTOR_SPEED
 
-        cmp r8, #19
+        cmp r7, #19
         beq SET_MOTORS_SPEED
 
-        cmp r8, #20
+        cmp r7, #20
         beq GET_TIME
 
-        cmp r8, #21
+        cmp r7, #21
         bleq SET_TIME
 
-        cmp r8, #22
+        cmp r7, #22
         beq SET_ALARM
 
-        cmp r8, #23
+        cmp r7, #23
         beq RETURN_TO_IRQ
 
         @ retorna o fluxo
@@ -218,15 +217,22 @@ interrupt_vector:
                 ldr r3, [r4]                                        @ carrega o o valor de DR em r3
                 bic r3, r3, #TRIGGER_MASK                           @ desativa trigger
                 str r3, [r4]                                        @ atualiza o valor de DR
-                @ delay de 15ms
+
+                mov r10, #15
+                bl delay                                            @ espera 15ms
+
                 orr r3, r3, #TRIGGER_MASK                           @ ativa trigger
                 str r3, [r4]                                        @ atualiza o valor de DR
-                @ delay de 15ms
+
+                mov r10, #15
+                bl delay                                            @ espera 15ms
+
                 bic r3, r3, #TRIGGER_MASK                           @ desativa trigger
                 str r3, [r4]                                        @ atualiza o valor de DR
 
             flag_activator:
-                @ delay de 10ms
+                mov r10, #10
+                bl delay                                            @ espera 10ms
                 ldr r3, [r4]                                        @ carrega novamente o valor de DR em r3
                 bic r3, r3, #ENABLE_ISOLATOR                        @ restaura apenas o valor de 'enable'
                 cmp r5, #1                                          @ verifica se enable esta ativo
@@ -236,6 +242,20 @@ interrupt_vector:
                 lsr r3, r3, #6                                      @ desloca o valor de 'sonar data'
                 mov r0, r3                                          @ move o valor lido para o registrador de retorno r0
                 b fim_rs                                            @ pula para o fim da syscall
+
+            @ espera por r10 ms
+            delay:
+                stmfd sp!, {r1, r10, lr}
+
+                mov r1, #200
+                mul r1, r1, r10
+
+                count:
+                    sub r1, r1, #1
+                    cmp r1, #0
+                    bgt count
+
+                ldmfd sp!, {r1, r10, pc}
 
             @ trata erros
             erro_rs:
@@ -363,8 +383,8 @@ interrupt_vector:
 
             bic r3, r3, #MOTOR_0_MASK                               @ remove a velocidade atual do motor 0
             bic r3, r3, #MOTOR_1_MASK                               @ remove a velocidade atual do motor 1
-            lsl r1, r1, #19                                         @ desloca a velocidade desejada para se adequar a DR (motor 0)
-            orr r3, r3, r1                                          @ insere a nova velocidade do motor 0 no valor resultante de DR
+            lsl r0, r0, #19                                         @ desloca a velocidade desejada para se adequar a DR (motor 0)
+            orr r3, r3, r0                                          @ insere a nova velocidade do motor 0 no valor resultante de DR
             lsl r1, r1, #26                                         @ desloca a velocidade desejada para se adequar a DR (motor 1)
             orr r3, r3, r1                                          @ insere a nova velocidade do motor 1 no valor resultante de DR
             str r3, [r4]                                            @ atualiza o valor de DR
@@ -385,7 +405,7 @@ interrupt_vector:
         GET_TIME:
             stmfd sp!, {lr}
 
-            mov r0, #SYSTEM_TIME
+            ldr r0, =SYSTEM_TIME
             ldr r0, [r0]
 
             ldmfd sp!, {lr}
