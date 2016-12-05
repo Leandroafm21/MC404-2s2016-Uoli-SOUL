@@ -427,7 +427,7 @@ interrupt_vector:
             ldr r6, =ALARMS_COUNT
             ldr r7, [r6]
             cmp r7, #MAX_ALARMS
-            blt alarms_available
+            blo alarms_available
             @ retornar -1 em caso de estouro
             mov r0, #-1
             movs pc, lr
@@ -504,21 +504,21 @@ interrupt_vector:
             cmp r4, #0                  @compara com tempo com 0, se igual, o alarme esta vazio
             beq handle_alarms
                                         @alarme existe, verificar se estamos em tempo de chamar a funcao
-            cmp r4, #SYSTEM_TIME
-            bhs handle_alarms
+            cmp r4, r1
+            bhi handle_alarms
                                         @alarme deve ser ativado
-            ldr r6, [r5, r3, lsl #3]    @carrega o ponteiro para funcao
-            stmfd sp!, {r0 - r4, lr}
-            msr CPSR_c, #0x10           @muda para modo usuario
-            blx r6                      @chama a funcao
-            mov r7, #23                 @volta para o modo irq
-            svc 0x0
-            ldmfd sp!, {r0 - r4, lr}
             ldr r9, [r8]                @carrega o contador de alarmes
             sub r9, r9, #1              @subtrai 1 do contador
             str r9, [r8]                @guarda o novo valor do contador
             mov r10, #0
             str r10, [r2, r3, lsl #3]   @limpa o tempo do alarme
+
+            ldr r6, [r5, r3, lsl #3]    @carrega o ponteiro para funcao
+            stmfd sp!, {r0 - r4, r12, lr}
+            msr CPSR_c, #0x10           @muda para modo usuario
+            blx r6                      @chama a funcao
+            msr CPSR_c, #0x12           @volta para o modo irq
+            ldmfd sp!, {r0 - r4, r12, lr}
             b handle_alarms
 
         end_alarms:
@@ -543,18 +543,18 @@ interrupt_vector:
             cmp r0, r7
             bgt handle_callbacks
                                         @distancia menor q a limiar, chamar funcao
-            ldr r7, [r2, r5, lsl #3]    @carrega o ponteiro para funcao
-            stmfd sp!, {r0 - r4, lr}
-            msr CPSR_c, #0x10           @muda para modo usuario
-            blx r7                      @chama a funcao
-            mov r7, #23                 @volta para o modo irq
-            svc 0x0
-            ldmfd sp!, {r0 - r4, lr}
             ldr r8, [r1]                @carrega o contador de alarmes
             sub r8, r8, #1              @decrementa o contador
             str r8, [r1]                @guarda o novo valor
             mov r10, #0
             str r10, [r3, r5, lsl #3]   @limpa a distancia
+
+            ldr r7, [r2, r5, lsl #3]    @carrega o ponteiro para funcao
+            stmfd sp!, {r0 - r4, r12, lr}
+            msr CPSR_c, #0x10           @muda para modo usuario
+            blx r7                      @chama a funcao
+            msr CPSR_c, #0x12           @volta para o modo irq
+            ldmfd sp!, {r0 - r4, r12, lr}
             b handle_callbacks
 
         end_callbacks:
