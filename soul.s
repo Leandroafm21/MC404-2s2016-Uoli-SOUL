@@ -49,6 +49,11 @@ interrupt_vector:
     .set TZIC_PRIOMASK,         0xC
     .set TZIC_PRIORITY9,        0x424
 
+    @ Stack constants
+    .set SYSTEM_STACK           0x778018AA
+    .set SUPERVISOR_STACK       0x77801AEA
+    .set IRQ_STACK              0x77801D2A
+
     @ System constants
     .set MAX_SPEED,             63
     .set MAX_ALARMS,            8
@@ -56,9 +61,6 @@ interrupt_vector:
     .set TIME_SZ,               2000
     .set MIN_SENSOR_ID,         0
     .set MAX_SENSOR_ID,         15
-
-    @ Stack constants
-    .set STACK_SIZE,            1024
 
     @@@@@@@@@@@@@@@@@@@@
     @ System Initiator @
@@ -137,22 +139,19 @@ interrupt_vector:
         SET_STACK_POINTERS:
 
             @ Set stacks
-            ldr r1, =STACK_POINTER
-            ldr r2, =STACK_SIZE
+            ldr r0, =IRQ_STACK          @ initialize IRQ stack
+            msr CPSR_c, #0x12
+            mov sp, r0
 
-            add r1, r1, r2
-            msr CPSR_c, #0x12       @ IRQ mode
-            mov sp, r1
+            ldr r0, =SUPERVISOR_STACK   @ initializa supervisor stack
+            msr CPSR_c, #0x13
+            mov sp, r0
 
-            add r1, r1, r2
-            msr CPSR_c, #0x1F       @ SYSTEM mode
-            mov sp, r1
+            ldr r0, =SYSTEM_STACK       @ initializa system stack
+            msr CPSR_c, #0x1F
+            mov sp, r0
 
-            add r1, r1, r2
-            msr CPSR_c, #0x13       @ Supervisor mode
-            mov sp, r1
-
-        RETURN_USER:        
+        RETURN_USER:
 
             msr CPSR_c, #0x10       @ change to USER mode
             ldr r0, =0x77802000     @ default start section of the LoCo code
@@ -185,9 +184,6 @@ interrupt_vector:
 
         cmp r7, #22
         beq SET_ALARM
-
-        cmp r7, #23
-        beq RETURN_TO_IRQ
 
         @ retorna o fluxo
         sub lr, lr, #4
@@ -334,7 +330,7 @@ interrupt_vector:
             cmp r1, r2
             bgt erro_sms_vel            @ velocidade invalida
 
-                                        @ atualiza valores de de velocidade
+            @ atualiza valores de de velocidade
             ldr r4, =GPIO_DR            @ carrega o endereco do registrador DR em r4
             ldr r3, [r4]                @ carrega o valor contido no registrador DR em r3
 
@@ -465,14 +461,6 @@ interrupt_vector:
             @ retorna o fluxo
             movs pc, lr
 
-        RETURN_TO_IRQ:
-            stmfd sp!, {lr}
-
-            msr CPSR_c, #0x12
-
-            ldmfd sp!, {lr}
-            mov pc, lr
-
     IRQ_HANDLER:
         stmfd sp!, {r0-r12, lr}
 
@@ -491,7 +479,7 @@ interrupt_vector:
         str r1, [r0]
 
         @ TRATAMENTO DE ALARMES:
-        
+
         ldr r2, =ALARMS_TIME            @carrega ponteiro do vetor de tempo dos alarmes
         ldr r5, =ALARMS_PTR             @carrega ponteiro do vetor de funcoes dos alarmes
         ldr r8, =ALARMS_COUNT
@@ -573,9 +561,6 @@ interrupt_vector:
     ALARMS_COUNT:   .word 0
     ALARMS_PTR:     .fill MAX_ALARMS, 8, 0
     ALARMS_TIME:    .fill MAX_ALARMS, 8, 0
-
-    @ alocacao das variaveis de pilhas
-    STACK_POINTER:   .skip STACK_SIZE * 4
 
     @ alocacao das variaveis para tratamento de callbacks
     CALLBACKS_COUNT:  .word 0
