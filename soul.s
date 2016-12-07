@@ -368,10 +368,10 @@ interrupt_vector:
             @ verifica erros
             mov r2, #MAX_SPEED
             cmp r0, r2
-            blt erro_smss_1             @ velocidade invalida
+            bhi erro_smss_1             @ velocidade invalida
             mov r2, #MAX_SPEED
             cmp r1, r2
-            blt erro_smss_2             @ velocidade invalida
+            bhi erro_smss_2             @ velocidade invalida
 
             @ atualiza valores de velocidade
             ldr r4, =GPIO_DR                                        @ carrega o endereco do registrador DR em r4
@@ -487,7 +487,7 @@ interrupt_vector:
         handle_alarms:
             add r3, r3, #1
             cmp r3, #MAX_ALARMS         @verifica se chegamos ao final da lista de alarmes
-            bhi end_alarms
+            bhs end_alarms
             ldr r4, [r2, r3, lsl #3]    @carrega tempo do alarme
             cmp r4, #0                  @compara com tempo com 0, se igual, o alarme esta vazio
             beq handle_alarms
@@ -520,7 +520,7 @@ interrupt_vector:
         handle_callbacks:
             add r5, r5, #1
             cmp r5, #MAX_CALLBACKS      @verifica se chegamos ao final da lista de callbacks
-            bhi end_callbacks
+            bhs end_callbacks
             ldr r6, [r3, r5, lsl #3]    @carrega a distancia
             cmp r6, #0                  @se for 0, o callback esta vazio
             beq handle_callbacks
