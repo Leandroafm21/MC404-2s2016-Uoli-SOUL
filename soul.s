@@ -36,10 +36,9 @@ interrupt_vector:
     .set SONAR_ID_MASK,         0b00000000000000000000000000111100
     .set SONAR_DATA_MASK,       0b00000000000000111111111111000000
     .set TRIGGER_MASK,          0b00000000000000000000000000000010
+    .set ENABLE_MASK,           0b00000000000000000000000000000001
     .set MOTOR_0_MASK,          0b00000001111111000000000000000000
     .set MOTOR_1_MASK,          0b11111110000000000000000000000000
-    .set ENABLE_ISOLATOR,       0b11111111111111111111111111111110
-    .set SONAR_DATA_ISOLATOR,   0b01111111111111000000000000111111
 
     @ TZIC addresses
     .set TZIC_BASE,             0x0FFFC000
@@ -185,6 +184,9 @@ interrupt_vector:
         cmp r7, #22
         beq SET_ALARM
 
+        cmp r7, #23
+        beq CHANGE_TO_IRQ
+
         @ retorna o fluxo
         sub lr, lr, #4
         movs pc, lr
@@ -230,11 +232,12 @@ interrupt_vector:
                 mov r10, #10
                 bl delay                                            @ espera 10ms
                 ldr r3, [r4]                                        @ carrega novamente o valor de DR em r3
-                bic r3, r3, #ENABLE_ISOLATOR                        @ restaura apenas o valor de 'enable'
-                cmp r5, #1                                          @ verifica se enable esta ativo
+                and r3, r3, #ENABLE_MASK                            @ restaura apenas o valor de 'enable'
+                cmp r3, #1                                          @ verifica se enable esta ativo
                 bne flag_activator                                  @ se nao estiver, continua esperando
-                ldr r5, =SONAR_DATA_ISOLATOR                        @ se estiver,
-                bic r3, r3, r5                                      @ restaura o valor de 'sonar data'
+                ldr r3, [r4]                                        @ carrega novamente o valor de DR em r3
+                ldr r5, =SONAR_DATA_MASK
+                and r3, r3, r5                                      @ se estiver, restaura o valor de `sonar data`
                 lsr r3, r3, #6                                      @ desloca o valor de 'sonar data'
                 mov r0, r3                                          @ move o valor lido para o registrador de retorno r0
                 b fim_rs                                            @ pula para o fim da syscall
@@ -243,7 +246,7 @@ interrupt_vector:
             delay:
                 stmfd sp!, {r1-r2, r10, lr}
 
-                mov r2, #200
+                mov r2, #2000
                 mul r1, r2, r10
 
                 count:
@@ -460,6 +463,12 @@ interrupt_vector:
 
             @ retorna o fluxo
             movs pc, lr
+    
+        CHANGE_TO_IRQ:
+            mov r3, lr
+            msr CPSR_c, #0x12
+            mov lr, r3
+            mov pc, lr
 
     IRQ_HANDLER:
         stmfd sp!, {r0-r12, lr}
@@ -505,7 +514,10 @@ interrupt_vector:
             stmfd sp!, {r0 - r4, r12, lr}
             msr CPSR_c, #0x10           @muda para modo usuario
             blx r6                      @chama a funcao
-            msr CPSR_c, #0x12           @volta para o modo irq
+
+            mov r7, #23
+            svc 0x0
+
             ldmfd sp!, {r0 - r4, r12, lr}
             b handle_alarms
 
@@ -541,7 +553,10 @@ interrupt_vector:
             stmfd sp!, {r0 - r4, r12, lr}
             msr CPSR_c, #0x10           @muda para modo usuario
             blx r7                      @chama a funcao
-            msr CPSR_c, #0x12           @volta para o modo irq
+            
+            mov r7, #23
+            svc 0x0
+
             ldmfd sp!, {r0 - r4, r12, lr}
             b handle_callbacks
 
@@ -570,3 +585,4 @@ interrupt_vector:
 
     @ alocacao da variavel para o tempo do sistema
     SYSTEM_TIME: .int 0
+    
