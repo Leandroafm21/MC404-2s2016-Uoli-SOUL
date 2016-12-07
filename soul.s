@@ -50,9 +50,9 @@ interrupt_vector:
     .set TZIC_PRIORITY9,        0x424
 
     @ Stack constants
-    .set SYSTEM_STACK           0x778018AA
-    .set SUPERVISOR_STACK       0x77801AEA
-    .set IRQ_STACK              0x77801D2A
+    .set SYSTEM_STACK,          0x778018AA
+    .set SUPERVISOR_STACK,      0x77801AEA
+    .set IRQ_STACK,             0x77801D2A
 
     @ System constants
     .set MAX_SPEED,             63
