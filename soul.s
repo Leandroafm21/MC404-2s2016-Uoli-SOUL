@@ -152,7 +152,7 @@ interrupt_vector:
             msr CPSR_c, #0x13       @ Supervisor mode
             mov sp, r1
 
-        RETURN_USER:        
+        RETURN_USER:
 
             msr CPSR_c, #0x10       @ change to USER mode
             ldr r0, =0x77802000     @ default start section of the LoCo code
