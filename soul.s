@@ -348,7 +348,7 @@ interrupt_vector:
             b fim_sms                   @ salta para o fim da syscall
 
             motor1_sms:
-            bic r3, r3, #MOTOR_1_MASK   @ remove a velocidade atual do motor 0
+            bic r3, r3, #MOTOR_1_MASK   @ remove a velocidade atual do motor 1
             lsl r1, r1, #26             @ desloca a velocidade desejada para se adequar a DR
             orr r3, r3, r1              @ insere a nova velocidade no valor resultante de DR
             str r3, [r4]                @ atualiza o valor de DR
@@ -569,9 +569,6 @@ interrupt_vector:
         movs pc, lr
 
 .data
-    @ alocacao da variavel para o tempo do sistema
-    SYSTEM_TIME: .word 0
-
     @ alocacao das variaveis para tratamento de alarmes
     ALARMS_COUNT:   .word 0
     ALARMS_PTR:     .fill MAX_ALARMS, 8, 0
@@ -585,3 +582,6 @@ interrupt_vector:
     CALLBACKS_PTR:    .fill MAX_CALLBACKS, 8, 0
     CALLBACKS_SON_ID: .fill MAX_CALLBACKS, 8, 0
     CALLBACKS_DIST:   .fill MAX_CALLBACKS, 8, 0
+
+    @ alocacao da variavel para o tempo do sistema
+    SYSTEM_TIME: .int 0
