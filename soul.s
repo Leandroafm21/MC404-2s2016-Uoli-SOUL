@@ -509,20 +509,21 @@ interrupt_vector:
             add r3, r3, #1
             cmp r3, #MAX_ALARMS         @verifica se chegamos ao final da lista de alarmes
             bhs end_alarms
-            ldr r4, [r2, r3, lsl #3]    @carrega tempo do alarme
-            cmp r4, #0                  @compara com tempo com 0, se igual, o alarme esta vazio
+            ldr r4, [r5, r3, lsl #3]    @carrega prt do alarme
+            cmp r4, #0                  @compara com prt com 0, se igual, o alarme esta vazio
             beq handle_alarms
                                         @alarme existe, verificar se estamos em tempo de chamar a funcao
+            ldr r4, [r2, r3, lsl #3]
             cmp r4, r1
             bhi handle_alarms
                                         @alarme deve ser ativado
             ldr r9, [r8]                @carrega o contador de alarmes
             sub r9, r9, #1              @subtrai 1 do contador
             str r9, [r8]                @guarda o novo valor do contador
-            mov r10, #0
-            str r10, [r2, r3, lsl #3]   @limpa o tempo do alarme
-
+            
             ldr r6, [r5, r3, lsl #3]    @carrega o ponteiro para funcao
+            mov r10, #0
+            str r10, [r5, r3, lsl #3]   @limpa o ponteiro do alarme
             stmfd sp!, {r0 - r4, r12, lr}
             msr CPSR_c, #0x10           @muda para modo usuario
             blx r6                      @chama a funcao
@@ -536,7 +537,6 @@ interrupt_vector:
         end_alarms:
 
         @ TRATAMENTO DE SENSOR CALLBACKS:
-        ldr r2, =CALLBACKS_PTR
         ldr r3, =CALLBACKS_DIST
         ldr r4, =CALLBACKS_SON_ID
         mov r5, #-1 @indice
@@ -549,9 +549,8 @@ interrupt_vector:
             beq handle_callbacks
                                         @callback existe, verificar distancia
             ldr r0, [r4, r5, lsl #3]    @carrega o id do sonar
-            ldr r7, [r3, r5, lsl #3]    @carrega a distancia
             bl READ_SONAR
-            cmp r0, r7
+            cmp r0, r6
             bhi handle_callbacks
             ldr r1, =CALLBACKS_COUNT
                                         @distancia menor q a limiar, chamar funcao
@@ -561,10 +560,11 @@ interrupt_vector:
             mov r10, #0
             str r10, [r3, r5, lsl #3]   @limpa a distancia
         
-            ldr r7, [r2, r5, lsl #3]    @carrega o ponteiro para funcao
+            ldr r2, =CALLBACKS_PTR
+            ldr r6, [r2, r5, lsl #3]    @carrega o ponteiro para funcao
             stmfd sp!, {r0 - r4, r12, lr}
             msr CPSR_c, #0x10           @muda para modo usuario
-            blx r7                      @chama a funcao
+            blx r6                      @chama a funcao
             
             mov r7, #23
             svc 0x0
