@@ -273,7 +273,7 @@ interrupt_vector:
             ldr r5, [r4]
 
             cmp r5, #MAX_CALLBACKS @ COUNT <= MAX
-            blt callbacks_available
+            blo callbacks_available
 
             @ retornar -1 em caso de estouro
             mov r0, #-1
@@ -282,7 +282,7 @@ interrupt_vector:
             callbacks_available:
             @ verificar validade do id do sensor
             cmp r0, #MIN_SENSOR_ID
-            bge valid_gtmin
+            bhs valid_gtmin
 
             @ retornar -2 em caso de sensor invalido
             mov r0, #-2
@@ -290,7 +290,7 @@ interrupt_vector:
 
             valid_gtmin:
             cmp r0, #MAX_SENSOR_ID
-            ble valid_lemax
+            bls valid_lemax
 
             @ retornar -2 em caso de sensor invalido
             mov r0, #-2
@@ -304,16 +304,21 @@ interrupt_vector:
             mov r9, #-1                 @indice
             callbacks_find_free:
               add r9, r9, #1            @incrementa indice
+              cmp r9, #MAX_CALLBACKS
+              bhs callbacks_end         @lotado
+
               ldr r10, [r7, r9, lsl #3] @carrega ponteiro
               cmp r10, #0               @verifica se o ponteiro eh invalido
-              bne alarm_find_free
+              bne callbacks_find_free
 
             str r0, [r6, r9, lsl #3]    @ CALLBACKS_SON_ID + 32 * CALLBACKS_COUNT = r0
-            str r2, [r7, r9, lsl #3]    @ CALLBACKS_PTR + 32 * CALLBACKS_COUNT = r0
-            str r1, [r8, r9, lsl #3]    @ CALLBACKS_DIST + 32 * CALLBACKS_COUNT = r0
+            str r2, [r7, r9, lsl #3]    @ CALLBACKS_PTR + 32 * CALLBACKS_COUNT = r2
+            str r1, [r8, r9, lsl #3]    @ CALLBACKS_DIST + 32 * CALLBACKS_COUNT = r1
 
             add r5, r5, #1              @ incrementa o contador de callbacks
             str r5, [r4]
+
+            callbacks_end:
 
             ldmfd sp!, {r4-r11, lr}
 
@@ -425,8 +430,10 @@ interrupt_vector:
             @ verifica se ja atingimos o numero maximo de alarmes
             ldr r6, =ALARMS_COUNT
             ldr r7, [r6]
+            
             cmp r7, #MAX_ALARMS
             blo alarms_available
+
             @ retornar -1 em caso de estouro
             mov r0, #-1
             movs pc, lr
@@ -447,6 +454,9 @@ interrupt_vector:
             mov r8, #-1                 @indice do vetor
             alarm_find_free:
               add r8, r8, #1            @incrementa indice
+              cmp r8, #MAX_ALARMS
+              bhs set_alarm_end         @lotado
+
               ldr r9, [r4, r8, lsl #3]  @carrega ponteiro
               cmp r9, #0                @ verifica se o ponteiro eh invalido
               bne alarm_find_free
@@ -458,6 +468,8 @@ interrupt_vector:
 
             add r7, r7, #1              @ incrementa o contador de alarmes
             str r7, [r6]
+
+            set_alarm_end:
 
             ldmfd sp!, {r4-r11, lr}
 
@@ -524,7 +536,6 @@ interrupt_vector:
         end_alarms:
 
         @ TRATAMENTO DE SENSOR CALLBACKS:
-        ldr r1, =CALLBACKS_COUNT
         ldr r2, =CALLBACKS_PTR
         ldr r3, =CALLBACKS_DIST
         ldr r4, =CALLBACKS_SON_ID
@@ -541,14 +552,15 @@ interrupt_vector:
             ldr r7, [r3, r5, lsl #3]    @carrega a distancia
             bl READ_SONAR
             cmp r0, r7
-            bgt handle_callbacks
+            bhi handle_callbacks
+            ldr r1, =CALLBACKS_COUNT
                                         @distancia menor q a limiar, chamar funcao
             ldr r8, [r1]                @carrega o contador de alarmes
             sub r8, r8, #1              @decrementa o contador
             str r8, [r1]                @guarda o novo valor
             mov r10, #0
             str r10, [r3, r5, lsl #3]   @limpa a distancia
-
+        
             ldr r7, [r2, r5, lsl #3]    @carrega o ponteiro para funcao
             stmfd sp!, {r0 - r4, r12, lr}
             msr CPSR_c, #0x10           @muda para modo usuario
@@ -585,4 +597,3 @@ interrupt_vector:
 
     @ alocacao da variavel para o tempo do sistema
     SYSTEM_TIME: .int 0
-    
