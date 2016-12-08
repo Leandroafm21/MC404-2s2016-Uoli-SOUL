@@ -265,7 +265,7 @@ interrupt_vector:
                 ldmfd sp!, {r1-r5, lr}
                 movs pc, lr
 
-        REGISTER_PROXIMITY_CALLBACK:
+        REGISTER_PROXIMITY_CALLBACK: @r0: id r1: dist r2: ptr
             stmfd sp!, {r4-r11, lr}
 
             @ verifica se ha espaco
@@ -537,6 +537,7 @@ interrupt_vector:
         end_alarms:
 
         @ TRATAMENTO DE SENSOR CALLBACKS:
+        ldr r2, =CALLBACKS_PTR
         ldr r3, =CALLBACKS_DIST
         ldr r4, =CALLBACKS_SON_ID
         mov r5, #-1 @indice
@@ -544,13 +545,17 @@ interrupt_vector:
             add r5, r5, #1
             cmp r5, #MAX_CALLBACKS      @verifica se chegamos ao final da lista de callbacks
             bhs end_callbacks
-            ldr r6, [r3, r5, lsl #3]    @carrega a distancia
+            ldr r6, [r2, r5, lsl #3]    @carrega o ptr
             cmp r6, #0                  @se for 0, o callback esta vazio
             beq handle_callbacks
                                         @callback existe, verificar distancia
             ldr r0, [r4, r5, lsl #3]    @carrega o id do sonar
-            bl READ_SONAR
-            cmp r0, r6
+
+            mov r7, #16
+            svc 0x0
+
+            ldr r7, [r3, r5, lsl #3]    @carrega distancia
+            cmp r0, r7
             bhi handle_callbacks
             ldr r1, =CALLBACKS_COUNT
                                         @distancia menor q a limiar, chamar funcao
@@ -558,10 +563,8 @@ interrupt_vector:
             sub r8, r8, #1              @decrementa o contador
             str r8, [r1]                @guarda o novo valor
             mov r10, #0
-            str r10, [r3, r5, lsl #3]   @limpa a distancia
+            str r10, [r2, r5, lsl #3]   @limpa o ptr
         
-            ldr r2, =CALLBACKS_PTR
-            ldr r6, [r2, r5, lsl #3]    @carrega o ponteiro para funcao
             stmfd sp!, {r0 - r4, r12, lr}
             msr CPSR_c, #0x10           @muda para modo usuario
             blx r6                      @chama a funcao
@@ -585,12 +588,14 @@ interrupt_vector:
 
 .data
     @ alocacao das variaveis para tratamento de alarmes
-    ALARMS_COUNT:   .word 0
+    ALARMS_COUNT:   .int 0
+    .skip 32
     ALARMS_PTR:     .fill MAX_ALARMS, 8, 0
     ALARMS_TIME:    .fill MAX_ALARMS, 8, 0
 
     @ alocacao das variaveis para tratamento de callbacks
-    CALLBACKS_COUNT:  .word 0
+    CALLBACKS_COUNT:  .int 0
+    .skip 32
     CALLBACKS_PTR:    .fill MAX_CALLBACKS, 8, 0
     CALLBACKS_SON_ID: .fill MAX_CALLBACKS, 8, 0
     CALLBACKS_DIST:   .fill MAX_CALLBACKS, 8, 0
