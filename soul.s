@@ -152,9 +152,9 @@ interrupt_vector:
 
         RETURN_USER:
 
-            msr CPSR_c, #0x10       @ change to USER mode
-            ldr r0, =0x77802000     @ default start section of the LoCo code
-            bx r0                   @ start program
+            msr CPSR_c, #0x10           @ change to USER mode
+            ldr r0, =0x77802000         @ default start section of the LoCo code
+            bx r0                       @ start program
 
     @@@@@@@@@@@@
     @ Handlers @
@@ -236,7 +236,7 @@ interrupt_vector:
                 cmp r3, #1                                          @ verifica se enable esta ativo
                 bne flag_activator                                  @ se nao estiver, continua esperando
                 ldr r3, [r4]                                        @ carrega novamente o valor de DR em r3
-                ldr r5, =SONAR_DATA_MASK
+                ldr r5, =SONAR_DATA_MASK                            @ carrega a mascara para isolar o dado do sonar em r5
                 and r3, r3, r5                                      @ se estiver, restaura o valor de `sonar data`
                 lsr r3, r3, #6                                      @ desloca o valor de 'sonar data'
                 mov r0, r3                                          @ move o valor lido para o registrador de retorno r0
@@ -430,7 +430,7 @@ interrupt_vector:
             @ verifica se ja atingimos o numero maximo de alarmes
             ldr r6, =ALARMS_COUNT
             ldr r7, [r6]
-            
+
             cmp r7, #MAX_ALARMS
             blo alarms_available
 
@@ -475,12 +475,12 @@ interrupt_vector:
 
             @ retorna o fluxo
             movs pc, lr
-    
+
         CHANGE_TO_IRQ:
-            mov r3, lr
-            msr CPSR_c, #0x12
-            mov lr, r3
-            mov pc, lr
+            mov r3, lr                  @ guarda o endereco da proxima instrucao em r3 (lr sera alterado)
+            msr CPSR_c, #0x12           @ muda o modo para IRQ
+            mov lr, r3                  @ volta lr para seu lugar
+            mov pc, lr                  @ continua a execucao do programa
 
     IRQ_HANDLER:
         stmfd sp!, {r0-r12, lr}
@@ -520,7 +520,7 @@ interrupt_vector:
             ldr r9, [r8]                @carrega o contador de alarmes
             sub r9, r9, #1              @subtrai 1 do contador
             str r9, [r8]                @guarda o novo valor do contador
-            
+
             ldr r6, [r5, r3, lsl #3]    @carrega o ponteiro para funcao
             mov r10, #0
             str r10, [r5, r3, lsl #3]   @limpa o ponteiro do alarme
@@ -564,11 +564,11 @@ interrupt_vector:
             str r8, [r1]                @guarda o novo valor
             mov r10, #0
             str r10, [r2, r5, lsl #3]   @limpa o ptr
-        
+
             stmfd sp!, {r0 - r4, r12, lr}
             msr CPSR_c, #0x10           @muda para modo usuario
             blx r6                      @chama a funcao
-            
+
             mov r7, #23
             svc 0x0
 
